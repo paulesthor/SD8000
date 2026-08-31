@@ -9,7 +9,9 @@ import {
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_EXPONENT,
   REDOUBLEMENT_MULT_SCALE,
-  REDOUBLEMENT_THRESHOLD_GROWTH,
+  REDOUBLEMENT_THRESHOLD_DECAY,
+  REDOUBLEMENT_THRESHOLD_GROWTH_MAX,
+  REDOUBLEMENT_THRESHOLD_GROWTH_MIN,
 } from './constants'
 import type { AxisId, GameState, GeneratorDef, GeneratorId } from './types'
 
@@ -130,23 +132,39 @@ export function productionPerSecond(
   return total
 }
 
+/** Per-step growth rate of the threshold, decaying from a high early rate toward a low one. */
+function thresholdStepGrowth(redoublements: number): number {
+  return (
+    REDOUBLEMENT_THRESHOLD_GROWTH_MIN +
+    (REDOUBLEMENT_THRESHOLD_GROWTH_MAX - REDOUBLEMENT_THRESHOLD_GROWTH_MIN) *
+      Math.exp(-redoublements / REDOUBLEMENT_THRESHOLD_DECAY)
+  )
+}
+
 /** Puanteur that must be earned this run before the next redoublement is worth doing. */
 export function redoublementThreshold(redoublements: number): number {
-  return REDOUBLEMENT_BASE_THRESHOLD * Math.pow(REDOUBLEMENT_THRESHOLD_GROWTH, redoublements)
+  let threshold = REDOUBLEMENT_BASE_THRESHOLD
+  for (let i = 0; i < redoublements; i++) {
+    threshold *= thresholdStepGrowth(i)
+  }
+  return threshold
 }
 
 /**
  * Multiplier gained by redoubling now, given lifetime puanteur earned this run and how many
  * redoublements are already banked — RI's P.Mult idea: no currency, the redoublement itself is
- * the reward, applied directly to one axis. The threshold rising with `redoublements` is what
- * keeps this from spiraling: earning exactly the threshold always yields the same relative gain,
- * however strong prior redoublements already made you, so getting the next one always takes
- * proportionally more effort than the last.
+ * the reward, applied directly to one axis. Two things keep this from spiraling or being
+ * spammable:
+ * - The threshold rising with `redoublements`: earning the same *relative* amount always takes
+ *   proportionally more effort than the last redoublement, however strong you've become.
+ * - The "- 1": gain is 0 exactly at the threshold and only grows with accumulation *beyond* it,
+ *   so redoubling the instant it unlocks is worthless — there's no reward for spamming it, only
+ *   for letting puanteur build up well past the minimum before cashing in.
  */
 export function redoublementMultiplierGain(earnedSinceReset: number, redoublements: number): number {
   const threshold = redoublementThreshold(redoublements)
-  if (earnedSinceReset < threshold) return 0
-  return Math.pow(earnedSinceReset / threshold, REDOUBLEMENT_EXPONENT) * REDOUBLEMENT_MULT_SCALE
+  if (earnedSinceReset <= threshold) return 0
+  return REDOUBLEMENT_MULT_SCALE * (Math.pow(earnedSinceReset / threshold, REDOUBLEMENT_EXPONENT) - 1)
 }
 
 /**

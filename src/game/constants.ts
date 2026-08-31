@@ -55,18 +55,34 @@ export const ASCENSION_COST_GROWTH_PENALTY = 0.05
 // puanteur earned this run relative to a threshold, rendements décroissants — applied directly
 // to whichever axis the player picks.
 //
-// The threshold itself grows REDOUBLEMENT_THRESHOLD_GROWTH-fold with every redoublement already
-// done. This is the piece that was missing and caused the runaway: without it, a stronger axis
-// multiplier -> faster production -> the (fixed) threshold reached in less real time -> another
-// axis bump -> even faster production, an unbounded positive feedback loop that hit numeric
-// infinity within seconds. Gating the threshold on redoublement count means getting the *next*
-// bump always takes proportionally more effort than the last, however strong you've become —
-// the standard way incremental games keep a prestige-into-itself loop from diverging.
+// The threshold rising with every redoublement already done is what keeps this from spiraling:
+// without it, a stronger axis multiplier -> faster production -> the (fixed) threshold reached
+// in less real time -> another axis bump -> even faster production, an unbounded positive
+// feedback loop that hit numeric infinity within seconds. Gating the threshold on redoublement
+// count means getting the *next* bump always takes more effort than the last, however strong
+// you've become — the standard way incremental games keep a prestige-into-itself loop from
+// diverging.
+//
+// The per-step growth rate itself isn't constant — it decays from
+// REDOUBLEMENT_THRESHOLD_GROWTH_MAX down toward REDOUBLEMENT_THRESHOLD_GROWTH_MIN as
+// redoublements pile up (REDOUBLEMENT_THRESHOLD_DECAY controls how fast). Early redoublements
+// each need several times more puanteur than the last (slow, deliberate pacing); once you've
+// banked enough of them the requirement barely rises step to step, so compounding axis bonuses
+// visibly outrun it and the game snowballs — the requested "slow then speeds up" shape.
 export const REDOUBLEMENT_BASE_THRESHOLD = 300
-export const REDOUBLEMENT_THRESHOLD_GROWTH = 3.5
+export const REDOUBLEMENT_THRESHOLD_GROWTH_MAX = 6
+export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.15
+export const REDOUBLEMENT_THRESHOLD_DECAY = 4
 export const REDOUBLEMENT_EXPONENT = 0.5
-/** Scales the raw (earned/threshold)^exponent value into an axis multiplier bonus. */
-export const REDOUBLEMENT_MULT_SCALE = 0.1
+/**
+ * Scales (earned/threshold)^exponent - 1 into an axis multiplier bonus. The "- 1" is what
+ * makes this scale on *accumulation beyond the minimum*, not merely reaching it: redoubling
+ * the instant earnedSinceReset crosses the threshold gives exactly 0% — spamming redoublement
+ * the moment it unlocks is worthless. Waiting and accumulating well past the threshold is what
+ * pays off (e.g. earning 4x the threshold before redoubling is worth vastly more than earning
+ * just barely over it).
+ */
+export const REDOUBLEMENT_MULT_SCALE = 0.5
 
 /**
  * Floor for the "Réduction de coûts" axis's cost multiplier — without it, that axis alone
@@ -79,8 +95,8 @@ export const COST_MULT_FLOOR = 0.02
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
-// Bumped to v2: the redoublement economy changed shape (PR currency/shop removed in favor of
-// direct per-axis multipliers), so old saves aren't meaningfully convertible — start fresh.
-export const SAVE_KEY = 'sd8000-save-v2'
+// Bumped to v3: reset requested after the redoublement gain formula changed shape (now scales
+// on accumulation past the threshold, not just reaching it) — old saves used the old curve.
+export const SAVE_KEY = 'sd8000-save-v3'
 export const AUTOSAVE_INTERVAL_MS = 10_000
 export const TICK_MS = 100

@@ -9,15 +9,16 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
   return (
     <div className="redoublement-panel">
       <p className="hint">
-        Redoubler remet ta puanteur et tes générateurs à zéro, mais te donne un multiplicateur —
-        plus tu as accumulé de puanteur, plus il est gros — à appliquer sur l'axe de ton choix.
-        Pas de monnaie à gérer : le choix se fait au moment de redoubler.
+        Redoubler remet ta puanteur et tes générateurs à zéro, mais te donne un multiplicateur à
+        appliquer sur l'axe de ton choix. Atteindre tout juste le seuil minimum ne rapporte rien —
+        c'est ce que tu accumules <em>au-delà</em> qui compte, donc redoubler dès que possible en
+        boucle ne sert à rien : mieux vaut laisser tourner un peu.
       </p>
 
       <div className="redoublement-stat">
         <span>Puanteur accumulée ce cycle</span>
         <strong>
-          {formatNumber(engine.state.earnedSinceReset)} / {formatNumber(engine.currentThreshold)}
+          {formatNumber(engine.state.earnedSinceReset)} / {formatNumber(engine.currentThreshold)} min.
         </strong>
       </div>
       <div className="redoublement-stat">
@@ -27,8 +28,8 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
 
       {!canRedouble && (
         <p className="hint">
-          Accumule encore de la puanteur avant de pouvoir redoubler (seuil du prochain
-          redoublement : {formatNumber(engine.currentThreshold)}).
+          Continue d'accumuler : il faut dépasser le seuil minimum ({formatNumber(engine.currentThreshold)}
+          ) pour qu'un redoublement rapporte quoi que ce soit.
         </p>
       )}
 
