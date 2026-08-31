@@ -52,15 +52,29 @@ export const ASCENSION_PRODUCTION_GROWTH = 1.7
 export const ASCENSION_COST_GROWTH_PENALTY = 0.05
 
 // RI-style redoublement: no currency, no shop. Redoubling grants a multiplier — computed from
-// puanteur earned this run, rendements décroissants — applied directly to whichever axis the
-// player picks. Tuned so the multiplier gain scales ~+50% for each doubling of earned puanteur,
-// the "reset when the next gain is roughly 50-100% more than what you have" heuristic idle
-// games converge on, instead of a hard wall where redoubling suddenly becomes worth it.
-export const REDOUBLEMENT_MIN_EARNED = 300
-export const REDOUBLEMENT_DIVISOR = 300
-export const REDOUBLEMENT_EXPONENT = 0.6
-/** Scales the raw (earned/divisor)^exponent value into an axis multiplier bonus. */
+// puanteur earned this run relative to a threshold, rendements décroissants — applied directly
+// to whichever axis the player picks.
+//
+// The threshold itself grows REDOUBLEMENT_THRESHOLD_GROWTH-fold with every redoublement already
+// done. This is the piece that was missing and caused the runaway: without it, a stronger axis
+// multiplier -> faster production -> the (fixed) threshold reached in less real time -> another
+// axis bump -> even faster production, an unbounded positive feedback loop that hit numeric
+// infinity within seconds. Gating the threshold on redoublement count means getting the *next*
+// bump always takes proportionally more effort than the last, however strong you've become —
+// the standard way incremental games keep a prestige-into-itself loop from diverging.
+export const REDOUBLEMENT_BASE_THRESHOLD = 300
+export const REDOUBLEMENT_THRESHOLD_GROWTH = 3.5
+export const REDOUBLEMENT_EXPONENT = 0.5
+/** Scales the raw (earned/threshold)^exponent value into an axis multiplier bonus. */
 export const REDOUBLEMENT_MULT_SCALE = 0.1
+
+/**
+ * Floor for the "Réduction de coûts" axis's cost multiplier — without it, that axis alone
+ * creates its own unbounded loop (cheaper generators -> more owned -> more earned -> bigger
+ * next redoublement gain -> even cheaper generators). Generators can get at most 50x cheaper
+ * from this axis, never approach free.
+ */
+export const COST_MULT_FLOOR = 0.02
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600

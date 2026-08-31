@@ -16,7 +16,9 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
 
       <div className="redoublement-stat">
         <span>Puanteur accumulée ce cycle</span>
-        <strong>{formatNumber(engine.state.earnedSinceReset)}</strong>
+        <strong>
+          {formatNumber(engine.state.earnedSinceReset)} / {formatNumber(engine.currentThreshold)}
+        </strong>
       </div>
       <div className="redoublement-stat">
         <span>Gain si tu redoubles maintenant</span>
@@ -24,7 +26,10 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
       </div>
 
       {!canRedouble && (
-        <p className="hint">Accumule encore un peu de puanteur avant de pouvoir redoubler.</p>
+        <p className="hint">
+          Accumule encore de la puanteur avant de pouvoir redoubler (seuil du prochain
+          redoublement : {formatNumber(engine.currentThreshold)}).
+        </p>
       )}
 
       {canRedouble && (

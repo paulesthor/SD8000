@@ -9,6 +9,7 @@ import {
   maxAffordable,
   productionPerSecond,
   redoublementMultiplierGain,
+  redoublementThreshold,
 } from './engine'
 import { loadState, saveState } from './save'
 import type { AxisId, GameState, GeneratorId } from './types'
@@ -134,14 +135,14 @@ export function useGameEngine() {
   }, [])
 
   const previewMultiplierGain = useMemo(
-    () => redoublementMultiplierGain(state.earnedSinceReset),
-    [state.earnedSinceReset],
+    () => redoublementMultiplierGain(state.earnedSinceReset, state.redoublements),
+    [state.earnedSinceReset, state.redoublements],
   )
 
   /** Redoubles and applies this redoublement's multiplier gain to the chosen axis. */
   const redoubler = useCallback((axisId: AxisId) => {
     setState((prev) => {
-      const gain = redoublementMultiplierGain(prev.earnedSinceReset)
+      const gain = redoublementMultiplierGain(prev.earnedSinceReset, prev.redoublements)
       if (gain <= 0) return prev
       const fresh = createInitialState()
       return {
@@ -156,11 +157,17 @@ export function useGameEngine() {
     })
   }, [])
 
+  const currentThreshold = useMemo(
+    () => redoublementThreshold(state.redoublements),
+    [state.redoublements],
+  )
+
   return {
     state,
     multipliers: mult,
     productionRate: rate,
     previewMultiplierGain,
+    currentThreshold,
     buyGenerator,
     ascendGenerator,
     redoubler,

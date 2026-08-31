@@ -4,11 +4,12 @@ import {
   ASCENSION_PRODUCTION_GROWTH,
   ASCENSION_THRESHOLD_GROWTH,
   AXES,
+  COST_MULT_FLOOR,
   GENERATORS,
-  REDOUBLEMENT_DIVISOR,
+  REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_EXPONENT,
-  REDOUBLEMENT_MIN_EARNED,
   REDOUBLEMENT_MULT_SCALE,
+  REDOUBLEMENT_THRESHOLD_GROWTH,
 } from './constants'
 import type { AxisId, GameState, GeneratorDef, GeneratorId } from './types'
 
@@ -100,7 +101,7 @@ export interface Multipliers {
 export function computeMultipliers(axisMultipliers: Record<AxisId, number>, instabilitySeed = 0): Multipliers {
   const speedMult = axisMultipliers.vitesse
   const productionMult = axisMultipliers.production
-  const costMult = 1 / Math.sqrt(axisMultipliers.cout)
+  const costMult = Math.max(COST_MULT_FLOOR, 1 / Math.sqrt(axisMultipliers.cout))
 
   const instabilityMult = axisMultipliers.instabilite
   const variance = Math.min(0.6, (instabilityMult - 1) * 0.1)
@@ -129,14 +130,23 @@ export function productionPerSecond(
   return total
 }
 
+/** Puanteur that must be earned this run before the next redoublement is worth doing. */
+export function redoublementThreshold(redoublements: number): number {
+  return REDOUBLEMENT_BASE_THRESHOLD * Math.pow(REDOUBLEMENT_THRESHOLD_GROWTH, redoublements)
+}
+
 /**
- * Multiplier gained by redoubling now, given lifetime puanteur earned this run — RI's P.Mult
- * idea: no currency, the redoublement itself is the reward, applied directly to one axis.
- * Rendements décroissants: doubling earned puanteur gives ~+50% more gain, not a flat wall.
+ * Multiplier gained by redoubling now, given lifetime puanteur earned this run and how many
+ * redoublements are already banked — RI's P.Mult idea: no currency, the redoublement itself is
+ * the reward, applied directly to one axis. The threshold rising with `redoublements` is what
+ * keeps this from spiraling: earning exactly the threshold always yields the same relative gain,
+ * however strong prior redoublements already made you, so getting the next one always takes
+ * proportionally more effort than the last.
  */
-export function redoublementMultiplierGain(earnedSinceReset: number): number {
-  if (earnedSinceReset < REDOUBLEMENT_MIN_EARNED) return 0
-  return Math.pow(earnedSinceReset / REDOUBLEMENT_DIVISOR, REDOUBLEMENT_EXPONENT) * REDOUBLEMENT_MULT_SCALE
+export function redoublementMultiplierGain(earnedSinceReset: number, redoublements: number): number {
+  const threshold = redoublementThreshold(redoublements)
+  if (earnedSinceReset < threshold) return 0
+  return Math.pow(earnedSinceReset / threshold, REDOUBLEMENT_EXPONENT) * REDOUBLEMENT_MULT_SCALE
 }
 
 /**
