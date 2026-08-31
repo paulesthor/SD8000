@@ -23,9 +23,7 @@ export default function App() {
             <div className="puanteur-rate">{formatRate(engine.productionRate)} de puanteur</div>
           </div>
         </div>
-        <div className="header-sub">
-          Redoublement #{engine.state.redoublements} · {formatNumber(engine.state.pr)} PR
-        </div>
+        <div className="header-sub">Redoublement #{engine.state.redoublements}</div>
       </header>
 
       <Scene engine={engine} />

@@ -3,14 +3,12 @@ import { AUTOSAVE_INTERVAL_MS, TICK_MS } from './constants'
 import {
   applyElapsedProduction,
   ascensionThreshold,
-  axisCost,
   computeMultipliers,
   createInitialState,
   generatorCost,
   maxAffordable,
-  prForRedoublement,
   productionPerSecond,
-  redoublementGlobalMult,
+  redoublementMultiplierGain,
 } from './engine'
 import { loadState, saveState } from './save'
 import type { AxisId, GameState, GeneratorId } from './types'
@@ -73,10 +71,8 @@ export function useGameEngine() {
   useEffect(() => {
     const id = setInterval(() => {
       setState((prev) => {
-        const mult = computeMultipliers(prev.axisLevels, Math.random())
-        const rate =
-          productionPerSecond(prev.owned, prev.ascensionLevels, mult) *
-          redoublementGlobalMult(prev.redoublements)
+        const mult = computeMultipliers(prev.axisMultipliers, Math.random())
+        const rate = productionPerSecond(prev.owned, prev.ascensionLevels, mult)
         const gained = rate * (TICK_MS / 1000)
         return {
           ...prev,
@@ -102,19 +98,17 @@ export function useGameEngine() {
     }
   }, [])
 
-  const mult = useMemo(() => computeMultipliers(state.axisLevels, 0.5), [state.axisLevels])
+  const mult = useMemo(() => computeMultipliers(state.axisMultipliers, 0.5), [state.axisMultipliers])
   const rate = useMemo(
-    () =>
-      productionPerSecond(state.owned, state.ascensionLevels, mult) *
-      redoublementGlobalMult(state.redoublements),
-    [state.owned, state.ascensionLevels, mult, state.redoublements],
+    () => productionPerSecond(state.owned, state.ascensionLevels, mult),
+    [state.owned, state.ascensionLevels, mult],
   )
 
   const buyGenerator = useCallback((id: GeneratorId, mode: 1 | 10 | 'max') => {
     setState((prev) => {
       const owned = prev.owned[id]
       const ascLevel = prev.ascensionLevels[id]
-      const costMult = computeMultipliers(prev.axisLevels).costMult
+      const costMult = computeMultipliers(prev.axisMultipliers).costMult
       if (mode === 'max') {
         const { qty, cost } = maxAffordable(id, owned, prev.puanteur, costMult, ascLevel)
         if (qty === 0) return prev
@@ -139,27 +133,24 @@ export function useGameEngine() {
     })
   }, [])
 
-  const buyAxis = useCallback((id: AxisId) => {
-    setState((prev) => {
-      const level = prev.axisLevels[id]
-      const cost = axisCost(id, level)
-      if (cost > prev.pr) return prev
-      return { ...prev, pr: prev.pr - cost, axisLevels: { ...prev.axisLevels, [id]: level + 1 } }
-    })
-  }, [])
+  const previewMultiplierGain = useMemo(
+    () => redoublementMultiplierGain(state.earnedSinceReset),
+    [state.earnedSinceReset],
+  )
 
-  const previewPr = useMemo(() => prForRedoublement(state.earnedSinceReset), [state.earnedSinceReset])
-
-  const redoubler = useCallback(() => {
+  /** Redoubles and applies this redoublement's multiplier gain to the chosen axis. */
+  const redoubler = useCallback((axisId: AxisId) => {
     setState((prev) => {
-      const gained = prForRedoublement(prev.earnedSinceReset)
-      if (gained <= 0) return prev
+      const gain = redoublementMultiplierGain(prev.earnedSinceReset)
+      if (gain <= 0) return prev
       const fresh = createInitialState()
       return {
         ...fresh,
-        pr: prev.pr + gained,
-        axisLevels: prev.axisLevels,
         ascensionLevels: prev.ascensionLevels,
+        axisMultipliers: {
+          ...prev.axisMultipliers,
+          [axisId]: prev.axisMultipliers[axisId] * (1 + gain),
+        },
         redoublements: prev.redoublements + 1,
       }
     })
@@ -169,10 +160,9 @@ export function useGameEngine() {
     state,
     multipliers: mult,
     productionRate: rate,
-    previewPr,
+    previewMultiplierGain,
     buyGenerator,
     ascendGenerator,
-    buyAxis,
     redoubler,
     offlineReport,
     dismissOfflineReport: () => setOfflineReport(null),

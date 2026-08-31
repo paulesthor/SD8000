@@ -1,6 +1,6 @@
-import { GENERATORS, MAX_OFFLINE_SECONDS, SAVE_KEY } from './constants'
+import { AXES, GENERATORS, MAX_OFFLINE_SECONDS, SAVE_KEY } from './constants'
 import { createInitialState } from './engine'
-import type { GameState, GeneratorId } from './types'
+import type { AxisId, GameState, GeneratorId } from './types'
 
 /** Fills in fields added after a save was written, so older saves don't crash on load. */
 function migrate(parsed: GameState): GameState {
@@ -9,6 +9,9 @@ function migrate(parsed: GameState): GameState {
       GeneratorId,
       number
     >
+  }
+  if (!parsed.axisMultipliers) {
+    parsed.axisMultipliers = Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>
   }
   return parsed
 }

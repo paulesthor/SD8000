@@ -19,37 +19,27 @@ export const AXES: AxisDef[] = [
   {
     id: 'vitesse',
     name: 'Vitesse de production',
-    description: '+10% de production par niveau.',
-    baseCost: 1,
-    costGrowth: 1.35,
+    description: 'Multiplie directement la production.',
   },
   {
     id: 'production',
     name: 'Production globale',
-    description: '+25% de production par niveau (plus cher que Vitesse).',
-    baseCost: 2,
-    costGrowth: 1.45,
+    description: 'Multiplie directement la production (échelle indépendante de Vitesse).',
   },
   {
     id: 'cout',
     name: 'Réduction de coûts',
-    description: '-3% de coût des générateurs par niveau.',
-    baseCost: 1,
-    costGrowth: 1.3,
+    description: 'Divise le coût des générateurs.',
   },
   {
     id: 'instabilite',
     name: 'Instabilité',
-    description: '+40% de production par niveau, mais la production fluctue aléatoirement.',
-    baseCost: 3,
-    costGrowth: 1.5,
+    description: 'Gros bonus de production, mais la production fluctue aléatoirement.',
   },
   {
     id: 'synergie',
     name: 'Synergie',
-    description: 'Multiplie la production selon le niveau cumulé de tes autres axes.',
-    baseCost: 5,
-    costGrowth: 1.6,
+    description: "Multiplie la production selon combien tu as fait grandir tes autres axes.",
   },
 ]
 
@@ -61,16 +51,22 @@ export const ASCENSION_PRODUCTION_GROWTH = 1.7
 /** Extra cost-growth penalty applied per ascension level — makes refilling slower each time. */
 export const ASCENSION_COST_GROWTH_PENALTY = 0.05
 
-// Tuned so PR scales ~+50% for each doubling of accumulated puanteur — the "reset when the
-// next gain is roughly 50-100% more than what you have" heuristic idle games converge on,
-// instead of a hard wall where redoubling suddenly becomes worth it.
-export const PR_MIN_EARNED = 300
-export const PR_DIVISOR = 300
-export const PR_EXPONENT = 0.6
+// RI-style redoublement: no currency, no shop. Redoubling grants a multiplier — computed from
+// puanteur earned this run, rendements décroissants — applied directly to whichever axis the
+// player picks. Tuned so the multiplier gain scales ~+50% for each doubling of earned puanteur,
+// the "reset when the next gain is roughly 50-100% more than what you have" heuristic idle
+// games converge on, instead of a hard wall where redoubling suddenly becomes worth it.
+export const REDOUBLEMENT_MIN_EARNED = 300
+export const REDOUBLEMENT_DIVISOR = 300
+export const REDOUBLEMENT_EXPONENT = 0.6
+/** Scales the raw (earned/divisor)^exponent value into an axis multiplier bonus. */
+export const REDOUBLEMENT_MULT_SCALE = 0.1
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
-export const SAVE_KEY = 'sd8000-save-v1'
+// Bumped to v2: the redoublement economy changed shape (PR currency/shop removed in favor of
+// direct per-axis multipliers), so old saves aren't meaningfully convertible — start fresh.
+export const SAVE_KEY = 'sd8000-save-v2'
 export const AUTOSAVE_INTERVAL_MS = 10_000
 export const TICK_MS = 100

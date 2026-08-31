@@ -25,22 +25,21 @@ export interface AxisDef {
   id: AxisId
   name: string
   description: string
-  /** PR cost of level 1, grows by costGrowth per level. */
-  baseCost: number
-  costGrowth: number
 }
 
 export interface GameState {
   /** Current spendable puanteur (resets on redoublement). */
   puanteur: number
-  /** Lifetime puanteur earned since the last redoublement — feeds the PR formula. */
+  /** Lifetime puanteur earned since the last redoublement — feeds the redoublement multiplier formula. */
   earnedSinceReset: number
   owned: Record<GeneratorId, number>
   /** Per-generator ascension level — permanent, survives redoublements. */
   ascensionLevels: Record<GeneratorId, number>
-  axisLevels: Record<AxisId, number>
-  /** Points de Redoublement banked, spendable on axis levels. */
-  pr: number
+  /**
+   * Permanent per-axis multiplier (starts at 1, no cap). Grows only when a redoublement's
+   * gain is applied to that axis — no currency, no shop, RI-style.
+   */
+  axisMultipliers: Record<AxisId, number>
   /** Total number of redoublements performed, ever. */
   redoublements: number
   lastTickAt: number

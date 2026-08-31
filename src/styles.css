@@ -384,8 +384,7 @@ button {
   gap: 8px;
 }
 
-.generator-buttons button,
-.axis-card > button {
+.generator-buttons button {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -400,21 +399,12 @@ button {
   min-height: 48px;
 }
 
-.axis-card > button {
-  width: 100%;
-  flex-direction: row;
-  justify-content: space-between;
-  padding: 12px 14px;
-}
-
-.generator-buttons button:disabled,
-.axis-card > button:disabled {
+.generator-buttons button:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.generator-buttons button:not(:disabled):active,
-.axis-card > button:not(:disabled):active {
+.generator-buttons button:not(:disabled):active {
   background: var(--accent-dim);
 }
 
@@ -445,21 +435,39 @@ button {
   color: var(--accent);
 }
 
-.redouble-button {
-  margin-top: 16px;
-  background: var(--accent);
-  color: #08130d;
-  border: none;
-  border-radius: 14px;
-  padding: 16px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  min-height: 56px;
+.axis-choice-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.redouble-button:disabled {
-  background: var(--bg-card-alt);
-  color: var(--text-dim);
+.axis-choice-button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--accent-dim);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-height: 56px;
+  text-align: left;
+}
+
+.axis-choice-button:active {
+  background: var(--accent-dim);
+}
+
+.axis-choice-values {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
 .bottom-nav {

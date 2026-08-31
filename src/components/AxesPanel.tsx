@@ -1,5 +1,4 @@
 import { AXES } from '../game/constants'
-import { axisCost } from '../game/engine'
 import { formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 import { Monogram } from './icons'
@@ -8,14 +7,12 @@ export function AxesPanel({ engine }: { engine: ReturnType<typeof useGameEngine>
   return (
     <div>
       <p className="hint">
-        Les axes sont achetés avec les Points de Redoublement (PR) et restent acquis d'un redoublement à
-        l'autre.
+        Les axes montent seulement au Redoublement : à chaque redoublement, tu choisis lequel booster.
+        Pas d'achat, pas de monnaie à gérer.
       </p>
       <ul className="axis-list">
         {AXES.map((def) => {
-          const level = engine.state.axisLevels[def.id]
-          const cost = axisCost(def.id, level)
-          const affordable = cost <= engine.state.pr
+          const mult = engine.state.axisMultipliers[def.id]
 
           return (
             <li key={def.id} className="axis-card">
@@ -23,15 +20,11 @@ export function AxesPanel({ engine }: { engine: ReturnType<typeof useGameEngine>
                 <Monogram label={def.name} />
                 <div>
                   <div className="axis-name">
-                    {def.name} <span className="axis-level">niv. {level}</span>
+                    {def.name} <span className="axis-level">x{formatNumber(mult)}</span>
                   </div>
                   <div className="axis-desc">{def.description}</div>
                 </div>
               </div>
-              <button disabled={!affordable} onClick={() => engine.buyAxis(def.id)}>
-                Améliorer
-                <span className="cost">{formatNumber(cost)} PR</span>
-              </button>
             </li>
           )
         })}

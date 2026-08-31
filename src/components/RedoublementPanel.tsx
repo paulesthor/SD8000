@@ -1,15 +1,17 @@
+import { AXES } from '../game/constants'
 import { formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 
 export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
-  const canRedouble = engine.previewPr > 0
+  const gain = engine.previewMultiplierGain
+  const canRedouble = gain > 0
 
   return (
     <div className="redoublement-panel">
       <p className="hint">
-        Redoubler remet ta puanteur et tes générateurs à zéro, mais te donne des Points de Redoublement
-        (PR) à dépenser dans tes axes — et un bonus de production permanent. Plus tu accumules de
-        puanteur avant de redoubler, plus tu gagnes de PR.
+        Redoubler remet ta puanteur et tes générateurs à zéro, mais te donne un multiplicateur —
+        plus tu as accumulé de puanteur, plus il est gros — à appliquer sur l'axe de ton choix.
+        Pas de monnaie à gérer : le choix se fait au moment de redoubler.
       </p>
 
       <div className="redoublement-stat">
@@ -17,17 +19,32 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
         <strong>{formatNumber(engine.state.earnedSinceReset)}</strong>
       </div>
       <div className="redoublement-stat">
-        <span>PR gagnés si tu redoubles maintenant</span>
-        <strong>{formatNumber(engine.previewPr)}</strong>
-      </div>
-      <div className="redoublement-stat">
-        <span>Bonus permanent actuel</span>
-        <strong>x{(1 + 0.15 * engine.state.redoublements).toFixed(2)}</strong>
+        <span>Gain si tu redoubles maintenant</span>
+        <strong>{canRedouble ? `+${formatNumber(gain * 100)}%` : '—'}</strong>
       </div>
 
-      <button className="redouble-button" disabled={!canRedouble} onClick={engine.redoubler}>
-        {canRedouble ? 'Redoubler' : 'Pas assez de puanteur accumulée'}
-      </button>
+      {!canRedouble && (
+        <p className="hint">Accumule encore un peu de puanteur avant de pouvoir redoubler.</p>
+      )}
+
+      {canRedouble && (
+        <ul className="axis-choice-list">
+          {AXES.map((def) => {
+            const current = engine.state.axisMultipliers[def.id]
+            const next = current * (1 + gain)
+            return (
+              <li key={def.id}>
+                <button className="axis-choice-button" onClick={() => engine.redoubler(def.id)}>
+                  <span className="axis-choice-name">{def.name}</span>
+                  <span className="axis-choice-values">
+                    x{formatNumber(current)} → x{formatNumber(next)}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }
