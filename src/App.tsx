@@ -5,6 +5,7 @@ import { GeneratorList } from './components/GeneratorList'
 import { AxesPanel } from './components/AxesPanel'
 import { RedoublementPanel } from './components/RedoublementPanel'
 import { OfflineModal } from './components/OfflineModal'
+import { Scene } from './components/Scene'
 import { AxesIcon, GeneratorsIcon, RedoublementIcon } from './components/icons'
 
 type Tab = 'generateurs' | 'axes' | 'redoublement'
@@ -26,6 +27,8 @@ export default function App() {
           Redoublement #{engine.state.redoublements} · {formatNumber(engine.state.pr)} PR
         </div>
       </header>
+
+      <Scene engine={engine} />
 
       <main className="content">
         {tab === 'generateurs' && <GeneratorList engine={engine} />}

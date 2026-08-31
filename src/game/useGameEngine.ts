@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AUTOSAVE_INTERVAL_MS, TICK_MS } from './constants'
 import {
+  applyElapsedProduction,
   ascensionThreshold,
   axisCost,
   computeMultipliers,
@@ -24,22 +25,48 @@ export function useGameEngine() {
   const [offlineReport, setOfflineReport] = useState<OfflineReport | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
+  // Guards the focus/pageshow catch-up below from firing before the saved state has loaded —
+  // otherwise it computes a "catch-up" off the fresh default state and clobbers the real save.
+  const loadedRef = useRef(false)
 
   // Load save + apply offline progress once on mount.
   useEffect(() => {
     const { state: loaded, offlineSeconds } = loadState()
     if (offlineSeconds > 5) {
-      const mult = computeMultipliers(loaded.axisLevels, 0.5)
-      const rate =
-        productionPerSecond(loaded.owned, loaded.ascensionLevels, mult) *
-        redoublementGlobalMult(loaded.redoublements)
-      const gained = rate * offlineSeconds
-      loaded.puanteur += gained
-      loaded.earnedSinceReset += gained
+      const { state: caughtUp, gained } = applyElapsedProduction(loaded, offlineSeconds)
       setOfflineReport({ seconds: offlineSeconds, puanteurGained: gained })
+      setState(caughtUp)
+    } else {
+      loaded.lastTickAt = Date.now()
+      setState(loaded)
     }
-    loaded.lastTickAt = Date.now()
-    setState(loaded)
+    loadedRef.current = true
+  }, [])
+
+  // Catch up whenever the app regains focus without a full reload — e.g. the phone was
+  // locked, the browser/PWA tab was backgrounded, or bfcache restored the page. Mobile
+  // browsers throttle or fully suspend setInterval while hidden, so the tick loop alone
+  // can't be trusted to keep production going; this closes whatever gap it missed.
+  useEffect(() => {
+    const catchUp = () => {
+      if (!loadedRef.current) return
+      if (document.visibilityState !== 'visible') return
+      const elapsedSeconds = (Date.now() - stateRef.current.lastTickAt) / 1000
+      if (elapsedSeconds < 2) return
+      const { state: caughtUp, gained } = applyElapsedProduction(stateRef.current, elapsedSeconds)
+      setState(caughtUp)
+      if (elapsedSeconds > 5) {
+        setOfflineReport({ seconds: elapsedSeconds, puanteurGained: gained })
+      }
+    }
+    document.addEventListener('visibilitychange', catchUp)
+    window.addEventListener('pageshow', catchUp)
+    window.addEventListener('focus', catchUp)
+    return () => {
+      document.removeEventListener('visibilitychange', catchUp)
+      window.removeEventListener('pageshow', catchUp)
+      window.removeEventListener('focus', catchUp)
+    }
   }, [])
 
   // Game tick.

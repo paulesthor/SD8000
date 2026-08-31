@@ -72,6 +72,199 @@ button {
   font-size: 0.8rem;
 }
 
+/* ---------- Scene ---------- */
+
+.scene {
+  position: relative;
+  height: 190px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 70%, #171a21 0%, var(--bg) 75%);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.scene-character {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  animation: char-bob 2.6s ease-in-out infinite;
+}
+
+.pixel-character {
+  image-rendering: pixelated;
+  display: block;
+}
+
+@keyframes char-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+.fx-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 30%, #000 100%);
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+
+.fx-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(61, 220, 132, 0.05) 0px,
+    rgba(61, 220, 132, 0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+.fx-scanlines.tier-2 { background-color: rgba(61, 220, 132, 0.03); }
+.fx-scanlines.tier-3 {
+  background-color: rgba(61, 220, 132, 0.06);
+  animation: scan-flicker 4s steps(2) infinite;
+}
+@keyframes scan-flicker {
+  0%, 92%, 100% { opacity: 1; }
+  93%, 95% { opacity: 0.6; }
+}
+
+.fx-heat {
+  position: absolute;
+  right: 6%;
+  top: 20%;
+  width: 30%;
+  height: 60%;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(224, 86, 63, 0.18), transparent 70%);
+  filter: blur(6px);
+  animation: heat-shimmer 3s ease-in-out infinite;
+}
+.fx-heat.tier-2 { opacity: 1.4; }
+.fx-heat.tier-3 { opacity: 2; }
+@keyframes heat-shimmer {
+  0%, 100% { transform: translateX(0) scaleY(1); }
+  50% { transform: translateX(3px) scaleY(1.05); }
+}
+
+.fx-stink {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fx-stink-line {
+  position: absolute;
+  bottom: 18px;
+  width: 3px;
+  height: 24px;
+  border-radius: 2px;
+  background: linear-gradient(0deg, transparent, var(--accent));
+  opacity: 0.7;
+  animation: stink-rise 2.4s ease-in infinite;
+}
+@keyframes stink-rise {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
+  100% { transform: translateY(-50px) rotate(12deg); opacity: 0; }
+}
+
+.fx-steam {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fx-steam-puff {
+  position: absolute;
+  bottom: 40px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(230, 235, 240, 0.35);
+  animation: steam-rise 3s ease-out infinite;
+}
+@keyframes steam-rise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0.5; }
+  100% { transform: translateY(-46px) scale(1.4); opacity: 0; }
+}
+
+.fx-crumbs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fx-crumb {
+  position: absolute;
+  top: -6px;
+  width: 3px;
+  height: 3px;
+  background: #b78b52;
+  animation: crumb-fall 4.5s linear infinite;
+}
+@keyframes crumb-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(180px); opacity: 0; }
+}
+
+.fx-flies {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fx-fly {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #1c1f26;
+  animation: fly-loop 1.8s ease-in-out infinite;
+}
+@keyframes fly-loop {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(8px, -6px); }
+  50% { transform: translate(0, -10px); }
+  75% { transform: translate(-8px, -4px); }
+  100% { transform: translate(0, 0); }
+}
+
+.fx-wifi {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 18px;
+  height: 14px;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    linear-gradient(45deg, transparent 45%, var(--accent) 45%, var(--accent) 55%, transparent 55%);
+  animation: wifi-flicker 2.2s steps(3) infinite;
+}
+.fx-wifi.tier-3 { opacity: 0.85; }
+@keyframes wifi-flicker {
+  0%, 60%, 100% { opacity: 0.5; }
+  30% { opacity: 0.1; }
+}
+
+.fx-sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fx-spark {
+  position: absolute;
+  top: 30%;
+  width: 3px;
+  height: 3px;
+  background: #ffb648;
+  box-shadow: 0 0 4px 1px #ffb648;
+  animation: spark-pop 2.6s ease-out infinite;
+}
+@keyframes spark-pop {
+  0%, 85%, 100% { opacity: 0; transform: scale(0.5); }
+  90% { opacity: 1; transform: scale(1.3); }
+}
+
 .content {
   flex: 1;
   overflow-y: auto;

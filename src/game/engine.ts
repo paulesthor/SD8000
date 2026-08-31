@@ -137,3 +137,23 @@ export function prForRedoublement(earnedSinceReset: number): number {
 export function redoublementGlobalMult(redoublements: number): number {
   return 1 + 0.15 * redoublements
 }
+
+/**
+ * Applies `seconds` worth of production to a state as a lump sum — used both for offline
+ * catch-up on load and for catching up time lost while the tab was backgrounded/throttled.
+ */
+export function applyElapsedProduction(state: GameState, seconds: number): { state: GameState; gained: number } {
+  const mult = computeMultipliers(state.axisLevels, 0.5)
+  const rate =
+    productionPerSecond(state.owned, state.ascensionLevels, mult) * redoublementGlobalMult(state.redoublements)
+  const gained = rate * seconds
+  return {
+    state: {
+      ...state,
+      puanteur: state.puanteur + gained,
+      earnedSinceReset: state.earnedSinceReset + gained,
+      lastTickAt: Date.now(),
+    },
+    gained,
+  }
+}
