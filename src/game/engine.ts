@@ -1,5 +1,12 @@
-import { AXES, GENERATORS } from './constants'
-import type { AxisId, GameState, GeneratorId } from './types'
+import {
+  ASCENSION_BASE_THRESHOLD,
+  ASCENSION_COST_GROWTH_PENALTY,
+  ASCENSION_PRODUCTION_GROWTH,
+  ASCENSION_THRESHOLD_GROWTH,
+  AXES,
+  GENERATORS,
+} from './constants'
+import type { AxisId, GameState, GeneratorDef, GeneratorId } from './types'
 
 export function createInitialState(): GameState {
   const now = Date.now()
@@ -10,6 +17,7 @@ export function createInitialState(): GameState {
     puanteur: 0,
     earnedSinceReset: 0,
     owned,
+    ascensionLevels: Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>,
     axisLevels: Object.fromEntries(AXES.map((a) => [a.id, 0])) as Record<AxisId, number>,
     pr: 0,
     redoublements: 0,
@@ -18,12 +26,34 @@ export function createInitialState(): GameState {
   }
 }
 
+/** Owned units required to ascend a generator currently at this ascension level. */
+export function ascensionThreshold(level: number): number {
+  return Math.round(ASCENSION_BASE_THRESHOLD * Math.pow(ASCENSION_THRESHOLD_GROWTH, level))
+}
+
+/** Permanent per-unit production multiplier granted by a generator's ascension level. */
+export function ascensionMultiplier(level: number): number {
+  return Math.pow(ASCENSION_PRODUCTION_GROWTH, level)
+}
+
+/** Ascending makes the generator refill slower: cost grows faster per level. */
+function effectiveCostGrowth(def: GeneratorDef, ascLevel: number): number {
+  return def.costGrowth * (1 + ASCENSION_COST_GROWTH_PENALTY * ascLevel)
+}
+
 /** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
-export function generatorCost(genId: GeneratorId, owned: number, qty: number, costMult: number): number {
+export function generatorCost(
+  genId: GeneratorId,
+  owned: number,
+  qty: number,
+  costMult: number,
+  ascLevel = 0,
+): number {
   const def = GENERATORS.find((g) => g.id === genId)!
+  const growth = effectiveCostGrowth(def, ascLevel)
   let total = 0
   for (let i = 0; i < qty; i++) {
-    total += def.baseCost * Math.pow(def.costGrowth, owned + i)
+    total += def.baseCost * Math.pow(growth, owned + i)
   }
   return total * costMult
 }
@@ -34,12 +64,15 @@ export function maxAffordable(
   owned: number,
   budget: number,
   costMult: number,
+  ascLevel = 0,
 ): { qty: number; cost: number } {
   let qty = 0
   let cost = 0
   // Small owned counts in a prototype: linear probe is fine and keeps the math obviously correct.
   while (true) {
-    const next = generatorCost(genId, owned, qty + 1, costMult) - (qty > 0 ? generatorCost(genId, owned, qty, costMult) : 0)
+    const next =
+      generatorCost(genId, owned, qty + 1, costMult, ascLevel) -
+      (qty > 0 ? generatorCost(genId, owned, qty, costMult, ascLevel) : 0)
     if (cost + next > budget) break
     cost += next
     qty += 1
@@ -82,10 +115,15 @@ export function computeMultipliers(axisLevels: Record<AxisId, number>, instabili
   return { costMult, speedMult, productionMult, instabilityMult, synergyMult, totalProductionMult }
 }
 
-export function productionPerSecond(owned: Record<GeneratorId, number>, mult: Multipliers): number {
+export function productionPerSecond(
+  owned: Record<GeneratorId, number>,
+  ascensionLevels: Record<GeneratorId, number>,
+  mult: Multipliers,
+): number {
   let total = 0
   for (const def of GENERATORS) {
-    total += def.baseProduction * owned[def.id] * mult.totalProductionMult
+    const ascMult = ascensionMultiplier(ascensionLevels[def.id])
+    total += def.baseProduction * owned[def.id] * ascMult * mult.totalProductionMult
   }
   return total
 }

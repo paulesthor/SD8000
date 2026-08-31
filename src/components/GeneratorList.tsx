@@ -1,5 +1,5 @@
 import { GENERATORS } from '../game/constants'
-import { generatorCost, maxAffordable } from '../game/engine'
+import { ascensionMultiplier, ascensionThreshold, generatorCost, maxAffordable } from '../game/engine'
 import { formatNumber, formatRate } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 import { Monogram } from './icons'
@@ -11,17 +11,31 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
     <ul className="generator-list">
       {GENERATORS.map((def) => {
         const owned = engine.state.owned[def.id]
-        const cost1 = generatorCost(def.id, owned, 1, costMult)
-        const cost10 = generatorCost(def.id, owned, 10, costMult)
-        const { qty: maxQty, cost: maxCost } = maxAffordable(def.id, owned, engine.state.puanteur, costMult)
-        const rate = def.baseProduction * owned * engine.multipliers.totalProductionMult
+        const ascLevel = engine.state.ascensionLevels[def.id]
+        const ascMult = ascensionMultiplier(ascLevel)
+        const threshold = ascensionThreshold(ascLevel)
+        const canAscend = owned >= threshold
+
+        const cost1 = generatorCost(def.id, owned, 1, costMult, ascLevel)
+        const cost10 = generatorCost(def.id, owned, 10, costMult, ascLevel)
+        const { qty: maxQty, cost: maxCost } = maxAffordable(
+          def.id,
+          owned,
+          engine.state.puanteur,
+          costMult,
+          ascLevel,
+        )
+        const rate = def.baseProduction * owned * ascMult * engine.multipliers.totalProductionMult
 
         return (
           <li key={def.id} className="generator-card">
             <div className="generator-info">
               <Monogram label={def.name} />
               <div>
-                <div className="generator-name">{def.name}</div>
+                <div className="generator-name">
+                  {def.name}
+                  {ascLevel > 0 && <span className="asc-badge">asc. {ascLevel}</span>}
+                </div>
                 <div className="generator-meta">
                   x{owned} · {formatRate(rate)}
                 </div>
@@ -45,6 +59,14 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                 <span className="cost">{formatNumber(maxCost)}</span>
               </button>
             </div>
+            <button
+              className="ascend-button"
+              disabled={!canAscend}
+              onClick={() => engine.ascendGenerator(def.id)}
+            >
+              Ascension ({owned}/{threshold}) — passe à x{formatNumber(ascensionMultiplier(ascLevel + 1))}
+              /unité
+            </button>
           </li>
         )
       })}

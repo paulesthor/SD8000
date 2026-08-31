@@ -36,6 +36,8 @@ export interface GameState {
   /** Lifetime puanteur earned since the last redoublement — feeds the PR formula. */
   earnedSinceReset: number
   owned: Record<GeneratorId, number>
+  /** Per-generator ascension level — permanent, survives redoublements. */
+  ascensionLevels: Record<GeneratorId, number>
   axisLevels: Record<AxisId, number>
   /** Points de Redoublement banked, spendable on axis levels. */
   pr: number

@@ -1,6 +1,17 @@
-import { MAX_OFFLINE_SECONDS, SAVE_KEY } from './constants'
+import { GENERATORS, MAX_OFFLINE_SECONDS, SAVE_KEY } from './constants'
 import { createInitialState } from './engine'
-import type { GameState } from './types'
+import type { GameState, GeneratorId } from './types'
+
+/** Fills in fields added after a save was written, so older saves don't crash on load. */
+function migrate(parsed: GameState): GameState {
+  if (!parsed.ascensionLevels) {
+    parsed.ascensionLevels = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<
+      GeneratorId,
+      number
+    >
+  }
+  return parsed
+}
 
 export function loadState(): { state: GameState; offlineSeconds: number } {
   const raw = localStorage.getItem(SAVE_KEY)
@@ -8,7 +19,7 @@ export function loadState(): { state: GameState; offlineSeconds: number } {
     return { state: createInitialState(), offlineSeconds: 0 }
   }
   try {
-    const parsed = JSON.parse(raw) as GameState
+    const parsed = migrate(JSON.parse(raw) as GameState)
     const elapsedSeconds = (Date.now() - parsed.lastTickAt) / 1000
     const offlineSeconds = Math.max(0, Math.min(elapsedSeconds, MAX_OFFLINE_SECONDS))
     return { state: parsed, offlineSeconds }

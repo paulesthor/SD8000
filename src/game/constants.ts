@@ -49,6 +49,14 @@ export const AXES: AxisDef[] = [
   },
 ]
 
+/** Owned units needed to ascend a generator at level 0; grows by ASCENSION_THRESHOLD_GROWTH per level. */
+export const ASCENSION_BASE_THRESHOLD = 50
+export const ASCENSION_THRESHOLD_GROWTH = 1.6
+/** Permanent per-unit production multiplier per ascension level (compounds). */
+export const ASCENSION_PRODUCTION_GROWTH = 1.7
+/** Extra cost-growth penalty applied per ascension level — makes refilling slower each time. */
+export const ASCENSION_COST_GROWTH_PENALTY = 0.05
+
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
