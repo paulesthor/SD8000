@@ -5,6 +5,9 @@ import {
   ASCENSION_THRESHOLD_GROWTH,
   AXES,
   GENERATORS,
+  PR_DIVISOR,
+  PR_EXPONENT,
+  PR_MIN_EARNED,
 } from './constants'
 import type { AxisId, GameState, GeneratorDef, GeneratorId } from './types'
 
@@ -130,8 +133,8 @@ export function productionPerSecond(
 
 /** Points de Redoublement earned for redoubling now, given lifetime puanteur earned this run. */
 export function prForRedoublement(earnedSinceReset: number): number {
-  if (earnedSinceReset < 1000) return 0
-  return Math.floor(Math.sqrt(earnedSinceReset / 1000))
+  if (earnedSinceReset < PR_MIN_EARNED) return 0
+  return Math.floor(Math.pow(earnedSinceReset / PR_DIVISOR, PR_EXPONENT))
 }
 
 export function redoublementGlobalMult(redoublements: number): number {

@@ -61,6 +61,13 @@ export const ASCENSION_PRODUCTION_GROWTH = 1.7
 /** Extra cost-growth penalty applied per ascension level — makes refilling slower each time. */
 export const ASCENSION_COST_GROWTH_PENALTY = 0.05
 
+// Tuned so PR scales ~+50% for each doubling of accumulated puanteur — the "reset when the
+// next gain is roughly 50-100% more than what you have" heuristic idle games converge on,
+// instead of a hard wall where redoubling suddenly becomes worth it.
+export const PR_MIN_EARNED = 300
+export const PR_DIVISOR = 300
+export const PR_EXPONENT = 0.6
+
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
