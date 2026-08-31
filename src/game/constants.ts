@@ -43,6 +43,13 @@ export const AXES: AxisDef[] = [
   },
 ]
 
+/**
+ * AD/RI-style tier cascade: each generator's production is boosted by how many of the *next*
+ * tier up you own (e.g. Clavier boosts PC pourri, Chaussettes boosts Clavier, ...). The last
+ * tier (Cave) has nothing above it, so it only benefits from axes/ascension like before.
+ */
+export const TIER_BOOST_COEFF = 0.02
+
 /** Owned units needed to ascend a generator at level 0; grows by ASCENSION_THRESHOLD_GROWTH per level. */
 export const ASCENSION_BASE_THRESHOLD = 50
 export const ASCENSION_THRESHOLD_GROWTH = 1.6
@@ -95,8 +102,9 @@ export const COST_MULT_FLOOR = 0.02
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
-// Bumped to v3: reset requested after the redoublement gain formula changed shape (now scales
-// on accumulation past the threshold, not just reaching it) — old saves used the old curve.
-export const SAVE_KEY = 'sd8000-save-v3'
+// Bumped to v4: full wipe requested — existing local saves were stuck holding Infinity from
+// the pre-fix runaway bug, and Infinity poisons every further calculation it touches, so no
+// migration could recover them. Also coincides with the tier-boost generator rework below.
+export const SAVE_KEY = 'sd8000-save-v4'
 export const AUTOSAVE_INTERVAL_MS = 10_000
 export const TICK_MS = 100

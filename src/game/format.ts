@@ -19,3 +19,11 @@ export function formatNumber(value: number): string {
 export function formatRate(value: number): string {
   return `${formatNumber(value)}/s`
 }
+
+/** For small multipliers (x1.04, x2.3...) where formatNumber's 1-decimal rounding hides the effect. */
+export function formatMultiplier(value: number): string {
+  if (!Number.isFinite(value)) return '∞'
+  if (Math.abs(value) < 10) return value.toFixed(2)
+  if (Math.abs(value) < 1000) return value.toFixed(1)
+  return formatNumber(value)
+}

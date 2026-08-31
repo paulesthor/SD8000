@@ -12,6 +12,7 @@ import {
   REDOUBLEMENT_THRESHOLD_DECAY,
   REDOUBLEMENT_THRESHOLD_GROWTH_MAX,
   REDOUBLEMENT_THRESHOLD_GROWTH_MIN,
+  TIER_BOOST_COEFF,
 } from './constants'
 import type { AxisId, GameState, GeneratorDef, GeneratorId } from './types'
 
@@ -119,15 +120,33 @@ export function computeMultipliers(axisMultipliers: Record<AxisId, number>, inst
   return { costMult, speedMult, productionMult, instabilityMult: wobblyInstabilityMult, synergyMult, totalProductionMult }
 }
 
+/** Multiplier a generator gets from how many of the next tier up are owned. */
+export function tierBoostMultiplier(ownedOfTierAbove: number): number {
+  return 1 + TIER_BOOST_COEFF * ownedOfTierAbove
+}
+
+/** Puanteur/sec produced by a single generator tier right now, tier-boost included. */
+export function generatorProductionPerSecond(
+  index: number,
+  owned: Record<GeneratorId, number>,
+  ascensionLevels: Record<GeneratorId, number>,
+  mult: Multipliers,
+): number {
+  const def = GENERATORS[index]
+  const above = GENERATORS[index + 1]
+  const ascMult = ascensionMultiplier(ascensionLevels[def.id])
+  const tierBoost = above ? tierBoostMultiplier(owned[above.id]) : 1
+  return def.baseProduction * owned[def.id] * ascMult * tierBoost * mult.totalProductionMult
+}
+
 export function productionPerSecond(
   owned: Record<GeneratorId, number>,
   ascensionLevels: Record<GeneratorId, number>,
   mult: Multipliers,
 ): number {
   let total = 0
-  for (const def of GENERATORS) {
-    const ascMult = ascensionMultiplier(ascensionLevels[def.id])
-    total += def.baseProduction * owned[def.id] * ascMult * mult.totalProductionMult
+  for (let i = 0; i < GENERATORS.length; i++) {
+    total += generatorProductionPerSecond(i, owned, ascensionLevels, mult)
   }
   return total
 }

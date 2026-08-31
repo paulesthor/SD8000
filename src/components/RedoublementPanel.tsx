@@ -1,5 +1,5 @@
 import { AXES } from '../game/constants'
-import { formatNumber } from '../game/format'
+import { formatMultiplier, formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 
 export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
@@ -43,7 +43,7 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
                 <button className="axis-choice-button" onClick={() => engine.redoubler(def.id)}>
                   <span className="axis-choice-name">{def.name}</span>
                   <span className="axis-choice-values">
-                    x{formatNumber(current)} → x{formatNumber(next)}
+                    x{formatMultiplier(current)} → x{formatMultiplier(next)}
                   </span>
                 </button>
               </li>

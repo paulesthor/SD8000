@@ -1,6 +1,13 @@
 import { GENERATORS } from '../game/constants'
-import { ascensionMultiplier, ascensionThreshold, generatorCost, maxAffordable } from '../game/engine'
-import { formatNumber, formatRate } from '../game/format'
+import {
+  ascensionMultiplier,
+  ascensionThreshold,
+  generatorCost,
+  generatorProductionPerSecond,
+  maxAffordable,
+  tierBoostMultiplier,
+} from '../game/engine'
+import { formatMultiplier, formatNumber, formatRate } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 import { Monogram } from './icons'
 
@@ -9,10 +16,9 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
 
   return (
     <ul className="generator-list">
-      {GENERATORS.map((def) => {
+      {GENERATORS.map((def, index) => {
         const owned = engine.state.owned[def.id]
         const ascLevel = engine.state.ascensionLevels[def.id]
-        const ascMult = ascensionMultiplier(ascLevel)
         const threshold = ascensionThreshold(ascLevel)
         const canAscend = owned >= threshold
 
@@ -25,7 +31,10 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
           costMult,
           ascLevel,
         )
-        const rate = def.baseProduction * owned * ascMult * engine.multipliers.totalProductionMult
+        const rate = generatorProductionPerSecond(index, engine.state.owned, engine.state.ascensionLevels, engine.multipliers)
+
+        const above = GENERATORS[index + 1]
+        const boost = above ? tierBoostMultiplier(engine.state.owned[above.id]) : null
 
         return (
           <li key={def.id} className="generator-card">
@@ -38,6 +47,9 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                 </div>
                 <div className="generator-meta">
                   x{owned} · {formatRate(rate)}
+                  {boost && boost > 1 && (
+                    <span className="tier-boost"> · boosté x{formatMultiplier(boost)} par {above!.name}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -64,7 +76,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
               disabled={!canAscend}
               onClick={() => engine.ascendGenerator(def.id)}
             >
-              Ascension ({owned}/{threshold}) — passe à x{formatNumber(ascensionMultiplier(ascLevel + 1))}
+              Ascension ({owned}/{threshold}) — passe à x{formatMultiplier(ascensionMultiplier(ascLevel + 1))}
               /unité
             </button>
           </li>

@@ -1,5 +1,5 @@
 import { AXES } from '../game/constants'
-import { formatNumber } from '../game/format'
+import { formatMultiplier } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 import { Monogram } from './icons'
 
@@ -20,7 +20,7 @@ export function AxesPanel({ engine }: { engine: ReturnType<typeof useGameEngine>
                 <Monogram label={def.name} />
                 <div>
                   <div className="axis-name">
-                    {def.name} <span className="axis-level">x{formatNumber(mult)}</span>
+                    {def.name} <span className="axis-level">x{formatMultiplier(mult)}</span>
                   </div>
                   <div className="axis-desc">{def.description}</div>
                 </div>

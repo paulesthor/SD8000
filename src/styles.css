@@ -332,6 +332,10 @@ button {
   font-size: 0.85rem;
 }
 
+.tier-boost {
+  color: var(--accent);
+}
+
 .generator-meta,
 .axis-desc {
   color: var(--text-dim);
