@@ -83,7 +83,12 @@ export const REDOUBLEMENT_BASE_THRESHOLD = 300
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MAX = 6
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.5
 export const REDOUBLEMENT_THRESHOLD_DECAY = 60
-export const REDOUBLEMENT_EXPONENT = 0.5
+// Tuned low (0.35, was 0.5): a higher exponent let "wait way past the minimum" strategies
+// wildly outpace "reasonably patient" ones — simulated, waiting 30x the threshold every time
+// unlocked couche 2 in ~4 minutes versus ~2 hours for waiting 3x, a 100x+ spread that made the
+// threshold below impossible to calibrate meaningfully. At 0.35 the same two strategies land
+// within a much narrower band of each other.
+export const REDOUBLEMENT_EXPONENT = 0.35
 /**
  * Scales (earned/threshold)^exponent - 1 into an axis multiplier bonus. The "- 1" is what
  * makes this scale on *accumulation beyond the minimum*, not merely reaching it: redoubling
@@ -99,8 +104,14 @@ export const REDOUBLEMENT_MULT_SCALE = 0.5
  * redoublements — is what caused this game's last two numeric-overflow bugs. Capped, the gain
  * from a single redoublement is bounded no matter how long you wait, so growth over many
  * redoublements stays a controlled geometric series instead of a diverging one.
+ *
+ * Tuned down from 50 to 8: at 50, waiting for a huge overshoot (e.g. 30x the threshold) was
+ * still a live exploit even with the exponent above capped — every redoublement stayed near the
+ * max achievable gain and the ratio cap barely mattered in practice. At 8, overshooting past
+ * roughly 8x the threshold stops paying off at all, so there's a real "sweet spot" to aim for
+ * instead of an incentive to wait indefinitely.
  */
-export const REDOUBLEMENT_MAX_RATIO = 50
+export const REDOUBLEMENT_MAX_RATIO = 8
 
 /**
  * Floor for the "Réduction de coûts" axis's cost multiplier — without it, that axis alone
@@ -117,17 +128,22 @@ export const COST_MULT_FLOOR = 0.02
  * this), but this guarantees redoublement gains simply stop applying rather than the game
  * silently breaking if that's ever wrong.
  */
-export const AXIS_MULT_SAFETY_CAP = 1e15
+export const AXIS_MULT_SAFETY_CAP = 1e50
 
 /**
  * bestCycleEarned needed to unlock couche 2 (Passage d'année) — RI's own Infinity unlocks the
  * same way: at 1.79e308 *Score*, which persists through the smaller Prestige/Promotion resets
- * but is the current run's peak, not a lifetime sum across many of them. Calibrated against RI's
- * published benchmark for a new player's first Infinity (70-100 minutes of engaged play):
- * simulated "patient" play (redoubling at ~3x the minimum threshold each time) crosses 2.5e13
- * bestCycleEarned right around the 90-95 minute mark — inside that window.
+ * but is the current run's peak, not a lifetime sum across many of them.
+ *
+ * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
+ * Infinity, via *optimized* play — not casual). A naive first calibration against "patient x3"
+ * (redouble at ~3x the minimum threshold) turned out not to be robust: an optimized player who
+ * instead waits for close to the ratio cap (~8x) reached the same threshold in under 10 minutes,
+ * a 10x+ discrepancy that made the number meaningless. 1e14 is calibrated against *that*
+ * optimized strategy — reached at ~70-80 minutes in simulation — with casual play landing well
+ * north of that, same as RI where the benchmark assumes good play, not idle clicking.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 2.5e13
+export const COUCHE_2_UNLOCK_THRESHOLD = 1e14
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
