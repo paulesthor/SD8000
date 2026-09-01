@@ -13,6 +13,9 @@ function migrate(parsed: GameState): GameState {
   if (!parsed.axisMultipliers) {
     parsed.axisMultipliers = Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>
   }
+  if (typeof parsed.lifetimeEarned !== 'number') {
+    parsed.lifetimeEarned = parsed.earnedSinceReset ?? 0
+  }
   return parsed
 }
 

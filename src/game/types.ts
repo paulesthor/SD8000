@@ -32,6 +32,8 @@ export interface GameState {
   puanteur: number
   /** Lifetime puanteur earned since the last redoublement — feeds the redoublement multiplier formula. */
   earnedSinceReset: number
+  /** Puanteur ever earned, across every redoublement — never resets. Gates couche 2. */
+  lifetimeEarned: number
   owned: Record<GeneratorId, number>
   /** Per-generator ascension level — permanent, survives redoublements. */
   ascensionLevels: Record<GeneratorId, number>

@@ -4,10 +4,13 @@ import {
   ASCENSION_PRODUCTION_GROWTH,
   ASCENSION_THRESHOLD_GROWTH,
   AXES,
+  AXIS_MULT_SAFETY_CAP,
   COST_MULT_FLOOR,
+  COUCHE_2_UNLOCK_THRESHOLD,
   GENERATORS,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_EXPONENT,
+  REDOUBLEMENT_MAX_RATIO,
   REDOUBLEMENT_MULT_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
   REDOUBLEMENT_THRESHOLD_GROWTH_MAX,
@@ -24,6 +27,7 @@ export function createInitialState(): GameState {
   return {
     puanteur: 0,
     earnedSinceReset: 0,
+    lifetimeEarned: 0,
     owned,
     ascensionLevels: Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>,
     axisMultipliers: Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>,
@@ -183,7 +187,18 @@ export function redoublementThreshold(redoublements: number): number {
 export function redoublementMultiplierGain(earnedSinceReset: number, redoublements: number): number {
   const threshold = redoublementThreshold(redoublements)
   if (earnedSinceReset <= threshold) return 0
-  return REDOUBLEMENT_MULT_SCALE * (Math.pow(earnedSinceReset / threshold, REDOUBLEMENT_EXPONENT) - 1)
+  const ratio = Math.min(earnedSinceReset / threshold, REDOUBLEMENT_MAX_RATIO)
+  return REDOUBLEMENT_MULT_SCALE * (Math.pow(ratio, REDOUBLEMENT_EXPONENT) - 1)
+}
+
+/** Applies a redoublement's gain to an axis multiplier, capped as a last line of defense. */
+export function applyAxisGain(current: number, gain: number): number {
+  return Math.min(current * (1 + gain), AXIS_MULT_SAFETY_CAP)
+}
+
+/** Whether couche 2 (Passage d'année) is unlocked, given lifetime puanteur ever earned. */
+export function isCouche2Unlocked(lifetimeEarned: number): boolean {
+  return lifetimeEarned >= COUCHE_2_UNLOCK_THRESHOLD
 }
 
 /**
@@ -199,6 +214,7 @@ export function applyElapsedProduction(state: GameState, seconds: number): { sta
       ...state,
       puanteur: state.puanteur + gained,
       earnedSinceReset: state.earnedSinceReset + gained,
+      lifetimeEarned: state.lifetimeEarned + gained,
       lastTickAt: Date.now(),
     },
     gained,

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTOSAVE_INTERVAL_MS, TICK_MS } from './constants'
+import { AUTOSAVE_INTERVAL_MS, COUCHE_2_UNLOCK_THRESHOLD, TICK_MS } from './constants'
 import {
+  applyAxisGain,
   applyElapsedProduction,
   ascensionThreshold,
   computeMultipliers,
   createInitialState,
   generatorCost,
+  isCouche2Unlocked,
   maxAffordable,
   productionPerSecond,
   redoublementMultiplierGain,
@@ -79,6 +81,7 @@ export function useGameEngine() {
           ...prev,
           puanteur: prev.puanteur + gained,
           earnedSinceReset: prev.earnedSinceReset + gained,
+          lifetimeEarned: prev.lifetimeEarned + gained,
           lastTickAt: Date.now(),
         }
       })
@@ -147,10 +150,11 @@ export function useGameEngine() {
       const fresh = createInitialState()
       return {
         ...fresh,
+        lifetimeEarned: prev.lifetimeEarned,
         ascensionLevels: prev.ascensionLevels,
         axisMultipliers: {
           ...prev.axisMultipliers,
-          [axisId]: prev.axisMultipliers[axisId] * (1 + gain),
+          [axisId]: applyAxisGain(prev.axisMultipliers[axisId], gain),
         },
         redoublements: prev.redoublements + 1,
       }
@@ -162,12 +166,16 @@ export function useGameEngine() {
     [state.redoublements],
   )
 
+  const couche2Unlocked = useMemo(() => isCouche2Unlocked(state.lifetimeEarned), [state.lifetimeEarned])
+
   return {
     state,
     multipliers: mult,
     productionRate: rate,
     previewMultiplierGain,
     currentThreshold,
+    couche2Unlocked,
+    couche2Threshold: COUCHE_2_UNLOCK_THRESHOLD,
     buyGenerator,
     ascendGenerator,
     redoubler,

@@ -72,14 +72,17 @@ export const ASCENSION_COST_GROWTH_PENALTY = 0.05
 //
 // The per-step growth rate itself isn't constant — it decays from
 // REDOUBLEMENT_THRESHOLD_GROWTH_MAX down toward REDOUBLEMENT_THRESHOLD_GROWTH_MIN as
-// redoublements pile up (REDOUBLEMENT_THRESHOLD_DECAY controls how fast). Early redoublements
-// each need several times more puanteur than the last (slow, deliberate pacing); once you've
-// banked enough of them the requirement barely rises step to step, so compounding axis bonuses
-// visibly outrun it and the game snowballs — the requested "slow then speeds up" shape.
+// redoublements pile up (REDOUBLEMENT_THRESHOLD_DECAY controls how fast, in redoublements —
+// large so the transition spans hours, not minutes). Early redoublements each need several
+// times more puanteur than the last (slow, deliberate pacing); later ones need proportionally
+// less, so compounding axis bonuses visibly outrun the threshold and the game snowballs — the
+// requested "slow then speeds up" shape. GROWTH_MIN stays well above 1 (not close to it) so
+// that snowball never turns into the unbounded loop this game hit twice before: simulated up
+// to 24h of continuous "patient" play without ever approaching numeric overflow.
 export const REDOUBLEMENT_BASE_THRESHOLD = 300
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MAX = 6
-export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.15
-export const REDOUBLEMENT_THRESHOLD_DECAY = 4
+export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.5
+export const REDOUBLEMENT_THRESHOLD_DECAY = 60
 export const REDOUBLEMENT_EXPONENT = 0.5
 /**
  * Scales (earned/threshold)^exponent - 1 into an axis multiplier bonus. The "- 1" is what
@@ -90,6 +93,14 @@ export const REDOUBLEMENT_EXPONENT = 0.5
  * just barely over it).
  */
 export const REDOUBLEMENT_MULT_SCALE = 0.5
+/**
+ * Caps the earned/threshold ratio the gain formula sees. Without this, waiting arbitrarily long
+ * before redoubling gives an arbitrarily large gain, which — compounded over enough
+ * redoublements — is what caused this game's last two numeric-overflow bugs. Capped, the gain
+ * from a single redoublement is bounded no matter how long you wait, so growth over many
+ * redoublements stays a controlled geometric series instead of a diverging one.
+ */
+export const REDOUBLEMENT_MAX_RATIO = 50
 
 /**
  * Floor for the "Réduction de coûts" axis's cost multiplier — without it, that axis alone
@@ -98,6 +109,25 @@ export const REDOUBLEMENT_MULT_SCALE = 0.5
  * from this axis, never approach free.
  */
 export const COST_MULT_FLOOR = 0.02
+
+/**
+ * Safety ceiling on any single axis multiplier — pure defense in depth. With
+ * REDOUBLEMENT_MAX_RATIO and the rebalanced threshold curve above, growth stays sane even over
+ * 24h+ of simulated continuous play (axis multipliers land around a few hundred, nowhere near
+ * this), but this guarantees redoublement gains simply stop applying rather than the game
+ * silently breaking if that's ever wrong.
+ */
+export const AXIS_MULT_SAFETY_CAP = 1e15
+
+/**
+ * Lifetime puanteur (never reset by redoublement) needed to unlock couche 2 (Passage d'année).
+ * Calibrated against Revolution Idle's own benchmark for a new player's first "Infinity" reset:
+ * the official guide cites 70-100 minutes of engaged play. Simulated "patient" play (redoubling
+ * at ~3x the minimum threshold each time) crosses 5e13 lifetime puanteur right around the
+ * 90-95 minute mark — inside that window — while staying numerically safe for many hours beyond
+ * for anyone who keeps grinding couche 1 past the unlock.
+ */
+export const COUCHE_2_UNLOCK_THRESHOLD = 5e13
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600

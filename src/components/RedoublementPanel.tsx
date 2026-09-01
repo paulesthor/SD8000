@@ -5,9 +5,25 @@ import type { useGameEngine } from '../game/useGameEngine'
 export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const gain = engine.previewMultiplierGain
   const canRedouble = gain > 0
+  const couche2Progress = Math.min(1, engine.state.lifetimeEarned / engine.couche2Threshold)
 
   return (
     <div className="redoublement-panel">
+      <div className="couche2-banner">
+        <div className="couche2-banner-row">
+          <span>Passage d'année</span>
+          <strong>{engine.couche2Unlocked ? 'Débloqué' : `${(couche2Progress * 100).toFixed(1)}%`}</strong>
+        </div>
+        <div className="couche2-bar">
+          <div className="couche2-bar-fill" style={{ width: `${couche2Progress * 100}%` }} />
+        </div>
+        <p className="hint">
+          {engine.couche2Unlocked
+            ? "Assez de puanteur accumulée à vie pour changer d'année — cette couche arrive bientôt."
+            : `Puanteur cumulée à vie : ${formatNumber(engine.state.lifetimeEarned)} / ${formatNumber(engine.couche2Threshold)}`}
+        </p>
+      </div>
+
       <p className="hint">
         Redoubler remet ta puanteur et tes générateurs à zéro, mais te donne un multiplicateur à
         appliquer sur l'axe de ton choix. Atteindre tout juste le seuil minimum ne rapporte rien —
