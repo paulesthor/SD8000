@@ -115,7 +115,13 @@ export const CADENCE_EFFECT_PER_LEVEL = 0.25
 // requested "slow then speeds up" shape. GROWTH_MIN stays well above 1 (not close to it) so
 // that snowball never turns into the unbounded loop this game hit twice before: simulated up
 // to 24h of continuous "patient" play without ever approaching numeric overflow.
-export const REDOUBLEMENT_BASE_THRESHOLD = 300
+// Bumped 300 -> 2e7: with the AD dimension-tier stack, buying-max compounds so fast that 300
+// puanteur (the old value) was reachable in ~14s with only 5-6 of the cheapest item — the very
+// first redoublement should feel like a real early milestone, not something a handful of PCs
+// pourris hands you before the tutorial's over. Verified via the real engine: buying everything
+// affordable each tick now takes ~150s (2.5min) to first cross this threshold; a lazier
+// PC-pourri-only strategy takes ~20min — both a real "slow start" instead of instant.
+export const REDOUBLEMENT_BASE_THRESHOLD = 2e7
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MAX = 6
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.5
 export const REDOUBLEMENT_THRESHOLD_DECAY = 60
@@ -162,14 +168,15 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  *
  * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
  * Infinity, via *optimized* play, not casual play). Re-simulated with the full AD-style stack
- * (dimension tier doubling, Redémarrage cascade, Grand ménage, Cadence) via the real engine:
- * a near-optimal strategy (buy max every generator, redémarrer/faire le ménage/monter la cadence
- * as soon as affordable, redoubler once comfortably past threshold) reaches 1.16e18
- * bestCycleEarned at ~80 minutes. Casual play (patient x3, ignoring the meta mechanics
- * entirely) is still at ~2.3e13 by that same mark — many hours behind — so the benchmark still
- * assumes good play, same as RI's own guide.
+ * (dimension tier doubling, Redémarrage cascade, Grand ménage, Cadence) via the real engine,
+ * and again after REDOUBLEMENT_BASE_THRESHOLD was raised (see its own comment — the first
+ * redoublement was reachable in 14s, far too fast): a near-optimal strategy (buy max every
+ * generator, redémarrer/faire le ménage/monter la cadence as soon as affordable, redoubler once
+ * comfortably past threshold) reaches ~7e15 bestCycleEarned at ~80 minutes. Casual play
+ * (patient x3, ignoring the meta mechanics entirely) is still at ~2.3e12 by that same mark —
+ * hours behind — so the benchmark still assumes good play, same as RI's own guide.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 1.2e18
+export const COUCHE_2_UNLOCK_THRESHOLD = 7e15
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
