@@ -458,6 +458,30 @@ button {
   border-color: var(--border);
 }
 
+.boost-button.danger {
+  background: var(--danger);
+  color: #2a0d07;
+  border-color: var(--danger);
+}
+
+.boost-button.danger:active {
+  background: #b8432f;
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-panel .boost-name {
+  margin-bottom: 10px;
+}
+
+.settings-panel .hint {
+  margin: 0 0 12px;
+}
+
 .couche2-banner {
   background: var(--bg-card);
   border: 1px solid var(--accent-dim);

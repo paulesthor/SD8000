@@ -5,11 +5,12 @@ import { GeneratorList } from './components/GeneratorList'
 import { AxesPanel } from './components/AxesPanel'
 import { BoostsPanel } from './components/BoostsPanel'
 import { RedoublementPanel } from './components/RedoublementPanel'
+import { SettingsPanel } from './components/SettingsPanel'
 import { OfflineModal } from './components/OfflineModal'
 import { Scene } from './components/Scene'
-import { AxesIcon, BoostsIcon, GeneratorsIcon, RedoublementIcon } from './components/icons'
+import { AxesIcon, BoostsIcon, GeneratorsIcon, RedoublementIcon, SettingsIcon } from './components/icons'
 
-type Tab = 'generateurs' | 'boosts' | 'axes' | 'redoublement'
+type Tab = 'generateurs' | 'boosts' | 'axes' | 'redoublement' | 'reglages'
 
 export default function App() {
   const engine = useGameEngine()
@@ -34,6 +35,7 @@ export default function App() {
         {tab === 'boosts' && <BoostsPanel engine={engine} />}
         {tab === 'axes' && <AxesPanel engine={engine} />}
         {tab === 'redoublement' && <RedoublementPanel engine={engine} />}
+        {tab === 'reglages' && <SettingsPanel />}
       </main>
 
       <nav className="bottom-nav">
@@ -52,6 +54,10 @@ export default function App() {
         <button className={tab === 'redoublement' ? 'active' : ''} onClick={() => setTab('redoublement')}>
           <RedoublementIcon />
           <span>Redoublement</span>
+        </button>
+        <button className={tab === 'reglages' ? 'active' : ''} onClick={() => setTab('reglages')}>
+          <SettingsIcon />
+          <span>Réglages</span>
         </button>
       </nav>
 

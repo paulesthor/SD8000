@@ -55,6 +55,15 @@ export function RedoublementIcon() {
   )
 }
 
+export function SettingsIcon() {
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5" />
+    </svg>
+  )
+}
+
 /** Deterministic 2-letter monogram avatar, no emoji. */
 export function Monogram({ label }: { label: string }) {
   const initials = label
