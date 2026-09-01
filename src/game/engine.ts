@@ -9,9 +9,7 @@ import {
   COUCHE_2_UNLOCK_THRESHOLD,
   GENERATORS,
   REDOUBLEMENT_BASE_THRESHOLD,
-  REDOUBLEMENT_EXPONENT,
-  REDOUBLEMENT_MAX_RATIO,
-  REDOUBLEMENT_MULT_SCALE,
+  REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
   REDOUBLEMENT_THRESHOLD_GROWTH_MAX,
   REDOUBLEMENT_THRESHOLD_GROWTH_MIN,
@@ -174,21 +172,24 @@ export function redoublementThreshold(redoublements: number): number {
 }
 
 /**
- * Multiplier gained by redoubling now, given lifetime puanteur earned this run and how many
+ * Multiplier gained by redoubling now, given puanteur earned this cycle and how many
  * redoublements are already banked — RI's P.Mult idea: no currency, the redoublement itself is
- * the reward, applied directly to one axis. Two things keep this from spiraling or being
- * spammable:
+ * the reward, applied directly to one axis. Same family as Antimatter Dimensions' own Infinity
+ * Points formula (IP = 10^(log10(antimatter)/308 - 0.75), i.e. antimatter^(1/308) scaled down —
+ * a fractional power / log-shaped curve with no hard ceiling): here, gain = LOG_SCALE *
+ * ln(earnedSinceReset / threshold). Two things keep this from spiraling or being spammable:
  * - The threshold rising with `redoublements`: earning the same *relative* amount always takes
  *   proportionally more effort than the last redoublement, however strong you've become.
- * - The "- 1": gain is 0 exactly at the threshold and only grows with accumulation *beyond* it,
- *   so redoubling the instant it unlocks is worthless — there's no reward for spamming it, only
- *   for letting puanteur build up well past the minimum before cashing in.
+ * - ln(1) = 0: gain is exactly 0 right at the threshold and only grows with accumulation
+ *   *beyond* it, so redoubling the instant it unlocks is worthless. But unlike a hard cap, it
+ *   never fully stalls either — every further multiple of accumulation keeps adding a bit more
+ *   (doubling the surplus always adds ln(2) ≈ 0.69 × LOG_SCALE, however much you've already
+ *   accumulated), so waiting longer always keeps paying off, just less and less per extra wait.
  */
 export function redoublementMultiplierGain(earnedSinceReset: number, redoublements: number): number {
   const threshold = redoublementThreshold(redoublements)
   if (earnedSinceReset <= threshold) return 0
-  const ratio = Math.min(earnedSinceReset / threshold, REDOUBLEMENT_MAX_RATIO)
-  return REDOUBLEMENT_MULT_SCALE * (Math.pow(ratio, REDOUBLEMENT_EXPONENT) - 1)
+  return REDOUBLEMENT_LOG_SCALE * Math.log(earnedSinceReset / threshold)
 }
 
 /** Applies a redoublement's gain to an axis multiplier, capped as a last line of defense. */

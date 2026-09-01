@@ -27,14 +27,16 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
       <p className="hint">
         Redoubler remet ta puanteur et tes générateurs à zéro, mais te donne un multiplicateur à
         appliquer sur l'axe de ton choix. Atteindre tout juste le seuil minimum ne rapporte rien —
-        c'est ce que tu accumules <em>au-delà</em> qui compte, donc redoubler dès que possible en
-        boucle ne sert à rien : mieux vaut laisser tourner un peu.
+        c'est ce que tu accumules <em>au-delà</em> qui compte. Plus tu accumules, plus le gain
+        monte, mais de moins en moins vite à chaque fois : pas de mur, juste des rendements de
+        plus en plus décroissants.
       </p>
 
       <div className="redoublement-stat">
         <span>Puanteur accumulée ce cycle</span>
         <strong>
-          {formatNumber(engine.state.earnedSinceReset)} / {formatNumber(engine.currentThreshold)} min.
+          {formatNumber(engine.state.earnedSinceReset)} / {formatNumber(engine.currentThreshold)} (seuil
+          minimum)
         </strong>
       </div>
       <div className="redoublement-stat">

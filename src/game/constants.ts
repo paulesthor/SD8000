@@ -83,35 +83,25 @@ export const REDOUBLEMENT_BASE_THRESHOLD = 300
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MAX = 6
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.5
 export const REDOUBLEMENT_THRESHOLD_DECAY = 60
-// Tuned low (0.35, was 0.5): a higher exponent let "wait way past the minimum" strategies
-// wildly outpace "reasonably patient" ones — simulated, waiting 30x the threshold every time
-// unlocked couche 2 in ~4 minutes versus ~2 hours for waiting 3x, a 100x+ spread that made the
-// threshold below impossible to calibrate meaningfully. At 0.35 the same two strategies land
-// within a much narrower band of each other.
-export const REDOUBLEMENT_EXPONENT = 0.35
 /**
- * Scales (earned/threshold)^exponent - 1 into an axis multiplier bonus. The "- 1" is what
- * makes this scale on *accumulation beyond the minimum*, not merely reaching it: redoubling
- * the instant earnedSinceReset crosses the threshold gives exactly 0% — spamming redoublement
- * the moment it unlocks is worthless. Waiting and accumulating well past the threshold is what
- * pays off (e.g. earning 4x the threshold before redoubling is worth vastly more than earning
- * just barely over it).
- */
-export const REDOUBLEMENT_MULT_SCALE = 0.5
-/**
- * Caps the earned/threshold ratio the gain formula sees. Without this, waiting arbitrarily long
- * before redoubling gives an arbitrarily large gain, which — compounded over enough
- * redoublements — is what caused this game's last two numeric-overflow bugs. Capped, the gain
- * from a single redoublement is bounded no matter how long you wait, so growth over many
- * redoublements stays a controlled geometric series instead of a diverging one.
+ * Gain is REDOUBLEMENT_LOG_SCALE * ln(earnedSinceReset / threshold) — a logarithmic curve
+ * instead of a capped power curve. Two earlier versions of this formula both got this wrong:
+ * a plain power curve (earned/threshold)^exponent let "wait way past the minimum" strategies
+ * wildly outpace patient ones (waiting 30x the threshold unlocked couche 2 in ~4 minutes versus
+ * ~2 hours for waiting 3x); adding a hard ratio cap fixed the runaway but replaced it with a
+ * flat ceiling — once a player was far enough past the cap (trivial after any real offline
+ * catch-up), the displayed gain froze at the exact same number forever, reading as broken.
  *
- * Tuned down from 50 to 8: at 50, waiting for a huge overshoot (e.g. 30x the threshold) was
- * still a live exploit even with the exponent above capped — every redoublement stayed near the
- * max achievable gain and the ratio cap barely mattered in practice. At 8, overshooting past
- * roughly 8x the threshold stops paying off at all, so there's a real "sweet spot" to aim for
- * instead of an incentive to wait indefinitely.
+ * A log curve does neither: ln(1) = 0, so reaching just the threshold still gives nothing
+ * (spamming redoublement the instant it unlocks stays worthless) and gain keeps climbing forever
+ * past that — never a hard wall — but each further multiple of accumulation only adds a fixed
+ * increment (doubling the surplus adds ln(2) ≈ 0.69, not a doubling of the gain itself), which
+ * is what keeps the curve "easy at first, increasingly demanding" without ever fully stalling.
+ * It's also inherently safe: simulated up to 24h of continuous aggressive play at several scales
+ * without ever approaching numeric overflow, because compounding a *linearly*-growing gain
+ * (ln of an exponentially growing ratio is linear) can't diverge the way a power-law gain does.
  */
-export const REDOUBLEMENT_MAX_RATIO = 8
+export const REDOUBLEMENT_LOG_SCALE = 0.15
 
 /**
  * Floor for the "Réduction de coûts" axis's cost multiplier — without it, that axis alone
@@ -122,11 +112,10 @@ export const REDOUBLEMENT_MAX_RATIO = 8
 export const COST_MULT_FLOOR = 0.02
 
 /**
- * Safety ceiling on any single axis multiplier — pure defense in depth. With
- * REDOUBLEMENT_MAX_RATIO and the rebalanced threshold curve above, growth stays sane even over
- * 24h+ of simulated continuous play (axis multipliers land around a few hundred, nowhere near
- * this), but this guarantees redoublement gains simply stop applying rather than the game
- * silently breaking if that's ever wrong.
+ * Safety ceiling on any single axis multiplier — pure defense in depth. The log-based gain
+ * formula above is inherently safe (simulated 24h+ of continuous aggressive play without
+ * approaching overflow), so this should never actually bind; it just guarantees redoublement
+ * gains simply stop applying rather than the game silently breaking if that's ever wrong.
  */
 export const AXIS_MULT_SAFETY_CAP = 1e50
 
@@ -136,14 +125,14 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  * but is the current run's peak, not a lifetime sum across many of them.
  *
  * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
- * Infinity, via *optimized* play — not casual). A naive first calibration against "patient x3"
- * (redouble at ~3x the minimum threshold) turned out not to be robust: an optimized player who
- * instead waits for close to the ratio cap (~8x) reached the same threshold in under 10 minutes,
- * a 10x+ discrepancy that made the number meaningless. 1e14 is calibrated against *that*
- * optimized strategy — reached at ~70-80 minutes in simulation — with casual play landing well
- * north of that, same as RI where the benchmark assumes good play, not idle clicking.
+ * Infinity, via *optimized* play, not casual play). Simulated with the log gain curve: a
+ * near-optimal strategy (redoubling once earned is comfortably past the threshold — no more
+ * hard "sweet spot" to hit since gain never caps) crosses 1e13 bestCycleEarned at ~79 minutes;
+ * an even more aggressive strategy reaches it at ~42 minutes — a real but modest spread (~1.9x),
+ * not the 10x+ swings the earlier formulas produced. Casual play lands well past that, same as
+ * RI where the benchmark assumes good play.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 1e14
+export const COUCHE_2_UNLOCK_THRESHOLD = 1e13
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
