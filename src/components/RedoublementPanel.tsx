@@ -5,7 +5,7 @@ import type { useGameEngine } from '../game/useGameEngine'
 export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const gain = engine.previewMultiplierGain
   const canRedouble = gain > 0
-  const couche2Progress = Math.min(1, engine.state.lifetimeEarned / engine.couche2Threshold)
+  const couche2Progress = Math.min(1, engine.state.bestCycleEarned / engine.couche2Threshold)
 
   return (
     <div className="redoublement-panel">
@@ -19,8 +19,8 @@ export function RedoublementPanel({ engine }: { engine: ReturnType<typeof useGam
         </div>
         <p className="hint">
           {engine.couche2Unlocked
-            ? "Assez de puanteur accumulée à vie pour changer d'année — cette couche arrive bientôt."
-            : `Puanteur cumulée à vie : ${formatNumber(engine.state.lifetimeEarned)} / ${formatNumber(engine.couche2Threshold)}`}
+            ? "Ton meilleur cycle est assez fort pour changer d'année — cette couche arrive bientôt."
+            : `Meilleur cycle atteint : ${formatNumber(engine.state.bestCycleEarned)} / ${formatNumber(engine.couche2Threshold)}`}
         </p>
       </div>
 

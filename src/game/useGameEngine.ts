@@ -77,11 +77,12 @@ export function useGameEngine() {
         const mult = computeMultipliers(prev.axisMultipliers, Math.random())
         const rate = productionPerSecond(prev.owned, prev.ascensionLevels, mult)
         const gained = rate * (TICK_MS / 1000)
+        const earnedSinceReset = prev.earnedSinceReset + gained
         return {
           ...prev,
           puanteur: prev.puanteur + gained,
-          earnedSinceReset: prev.earnedSinceReset + gained,
-          lifetimeEarned: prev.lifetimeEarned + gained,
+          earnedSinceReset,
+          bestCycleEarned: Math.max(prev.bestCycleEarned, earnedSinceReset),
           lastTickAt: Date.now(),
         }
       })
@@ -150,7 +151,7 @@ export function useGameEngine() {
       const fresh = createInitialState()
       return {
         ...fresh,
-        lifetimeEarned: prev.lifetimeEarned,
+        bestCycleEarned: prev.bestCycleEarned,
         ascensionLevels: prev.ascensionLevels,
         axisMultipliers: {
           ...prev.axisMultipliers,
@@ -166,7 +167,7 @@ export function useGameEngine() {
     [state.redoublements],
   )
 
-  const couche2Unlocked = useMemo(() => isCouche2Unlocked(state.lifetimeEarned), [state.lifetimeEarned])
+  const couche2Unlocked = useMemo(() => isCouche2Unlocked(state.bestCycleEarned), [state.bestCycleEarned])
 
   return {
     state,

@@ -27,7 +27,7 @@ export function createInitialState(): GameState {
   return {
     puanteur: 0,
     earnedSinceReset: 0,
-    lifetimeEarned: 0,
+    bestCycleEarned: 0,
     owned,
     ascensionLevels: Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>,
     axisMultipliers: Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>,
@@ -196,9 +196,9 @@ export function applyAxisGain(current: number, gain: number): number {
   return Math.min(current * (1 + gain), AXIS_MULT_SAFETY_CAP)
 }
 
-/** Whether couche 2 (Passage d'année) is unlocked, given lifetime puanteur ever earned. */
-export function isCouche2Unlocked(lifetimeEarned: number): boolean {
-  return lifetimeEarned >= COUCHE_2_UNLOCK_THRESHOLD
+/** Whether couche 2 (Passage d'année) is unlocked, given the best single-cycle peak reached. */
+export function isCouche2Unlocked(bestCycleEarned: number): boolean {
+  return bestCycleEarned >= COUCHE_2_UNLOCK_THRESHOLD
 }
 
 /**
@@ -214,7 +214,7 @@ export function applyElapsedProduction(state: GameState, seconds: number): { sta
       ...state,
       puanteur: state.puanteur + gained,
       earnedSinceReset: state.earnedSinceReset + gained,
-      lifetimeEarned: state.lifetimeEarned + gained,
+      bestCycleEarned: Math.max(state.bestCycleEarned, state.earnedSinceReset + gained),
       lastTickAt: Date.now(),
     },
     gained,

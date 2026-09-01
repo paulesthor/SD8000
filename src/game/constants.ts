@@ -120,14 +120,14 @@ export const COST_MULT_FLOOR = 0.02
 export const AXIS_MULT_SAFETY_CAP = 1e15
 
 /**
- * Lifetime puanteur (never reset by redoublement) needed to unlock couche 2 (Passage d'année).
- * Calibrated against Revolution Idle's own benchmark for a new player's first "Infinity" reset:
- * the official guide cites 70-100 minutes of engaged play. Simulated "patient" play (redoubling
- * at ~3x the minimum threshold each time) crosses 5e13 lifetime puanteur right around the
- * 90-95 minute mark — inside that window — while staying numerically safe for many hours beyond
- * for anyone who keeps grinding couche 1 past the unlock.
+ * bestCycleEarned needed to unlock couche 2 (Passage d'année) — RI's own Infinity unlocks the
+ * same way: at 1.79e308 *Score*, which persists through the smaller Prestige/Promotion resets
+ * but is the current run's peak, not a lifetime sum across many of them. Calibrated against RI's
+ * published benchmark for a new player's first Infinity (70-100 minutes of engaged play):
+ * simulated "patient" play (redoubling at ~3x the minimum threshold each time) crosses 2.5e13
+ * bestCycleEarned right around the 90-95 minute mark — inside that window.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 5e13
+export const COUCHE_2_UNLOCK_THRESHOLD = 2.5e13
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600

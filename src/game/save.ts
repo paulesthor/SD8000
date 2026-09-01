@@ -13,8 +13,11 @@ function migrate(parsed: GameState): GameState {
   if (!parsed.axisMultipliers) {
     parsed.axisMultipliers = Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>
   }
-  if (typeof parsed.lifetimeEarned !== 'number') {
-    parsed.lifetimeEarned = parsed.earnedSinceReset ?? 0
+  if (typeof parsed.bestCycleEarned !== 'number') {
+    // lifetimeEarned was this field's previous name/shape (a lifetime sum, replaced because it
+    // didn't match how RI's own Infinity gate works) — fall back sensibly either way.
+    const legacy = (parsed as unknown as { lifetimeEarned?: number }).lifetimeEarned
+    parsed.bestCycleEarned = legacy ?? parsed.earnedSinceReset ?? 0
   }
   return parsed
 }
