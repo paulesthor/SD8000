@@ -35,7 +35,7 @@ export default function App() {
         {tab === 'boosts' && <BoostsPanel engine={engine} />}
         {tab === 'axes' && <AxesPanel engine={engine} />}
         {tab === 'redoublement' && <RedoublementPanel engine={engine} />}
-        {tab === 'reglages' && <SettingsPanel />}
+        {tab === 'reglages' && <SettingsPanel engine={engine} />}
       </main>
 
       <nav className="bottom-nav">

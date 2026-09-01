@@ -18,7 +18,7 @@ import {
   redoublementMultiplierGain,
   redoublementThreshold,
 } from './engine'
-import { loadState, saveState } from './save'
+import { loadState, resetSave, saveState } from './save'
 import type { AxisId, GameState, GeneratorId } from './types'
 
 export interface OfflineReport {
@@ -144,6 +144,18 @@ export function useGameEngine() {
     setState((prev) => performBuyCadence(prev))
   }, [])
 
+  /**
+   * Resets in-memory state directly instead of clearing storage + reloading the page: a reload
+   * fires `beforeunload`, which the autosave effect below listens for to save on the way out —
+   * that re-wrote the just-cleared save with the stale pre-reset state before the reload could
+   * even take effect, so "Réinitialiser" silently did nothing.
+   */
+  const resetGame = useCallback(() => {
+    resetSave()
+    setOfflineReport(null)
+    setState(createInitialState())
+  }, [])
+
   const previewMultiplierGain = useMemo(
     () => redoublementMultiplierGain(state.earnedSinceReset, state.redoublements),
     [state.earnedSinceReset, state.redoublements],
@@ -194,6 +206,7 @@ export function useGameEngine() {
     grandMenageCostNow,
     cadenceCostNow,
     redoubler,
+    resetGame,
     offlineReport,
     dismissOfflineReport: () => setOfflineReport(null),
   }

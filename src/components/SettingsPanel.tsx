@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { resetSave } from '../game/save'
+import type { useGameEngine } from '../game/useGameEngine'
 
-export function SettingsPanel() {
+export function SettingsPanel({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const [confirming, setConfirming] = useState(false)
 
   const handleReset = () => {
@@ -9,8 +9,8 @@ export function SettingsPanel() {
       setConfirming(true)
       return
     }
-    resetSave()
-    window.location.reload()
+    engine.resetGame()
+    setConfirming(false)
   }
 
   return (
