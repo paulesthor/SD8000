@@ -32,6 +32,18 @@ export function AxesIcon() {
   )
 }
 
+export function BoostsIcon() {
+  return (
+    <svg {...common}>
+      <path d="M12 3v6" />
+      <path d="M8 6l4 3 4-3" />
+      <circle cx="12" cy="15" r="5" />
+      <path d="M12 12.5v5" />
+      <path d="M9.8 14l2.2 1.5 2.2-1.5" />
+    </svg>
+  )
+}
+
 export function RedoublementIcon() {
   return (
     <svg {...common}>

@@ -13,8 +13,10 @@ export interface GeneratorDef {
   name: string
   /** Cost of the 1st unit, in puanteur. */
   baseCost: number
-  /** Multiplier applied to cost per unit already owned. */
+  /** Multiplier applied to cost per unit already owned, within a decade of 10. */
   costGrowth: number
+  /** Extra cost multiplier applied once per full decade (10, 20, 30...) owned — AD-style. */
+  scaling: number
   /** Puanteur/sec produced per owned unit, before multipliers. */
   baseProduction: number
 }
@@ -40,8 +42,18 @@ export interface GameState {
    */
   bestCycleEarned: number
   owned: Record<GeneratorId, number>
-  /** Per-generator ascension level — permanent, survives redoublements. */
-  ascensionLevels: Record<GeneratorId, number>
+  /**
+   * Redémarrages performed since the last Grand ménage (AD's Dimension Boost) — resets items 1-7
+   * and grants a cascading production multiplier, strongest on item 1, halving down the chain.
+   */
+  redemarrages: number
+  /**
+   * Grands ménages performed since the last redoublement (AD's Antimatter Galaxy) — resets every
+   * item and redemarrages, but makes Cadence cheaper/stronger from then on this cycle.
+   */
+  grandsMenages: number
+  /** Cadence level (AD's tickspeed) — bought with puanteur, survives Redémarrage/Grand ménage. */
+  cadenceLevel: number
   /**
    * Permanent per-axis multiplier (starts at 1, no cap). Grows only when a redoublement's
    * gain is applied to that axis — no currency, no shop, RI-style.

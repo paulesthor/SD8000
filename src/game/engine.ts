@@ -1,13 +1,19 @@
 import {
-  ASCENSION_BASE_THRESHOLD,
-  ASCENSION_COST_GROWTH_PENALTY,
-  ASCENSION_PRODUCTION_GROWTH,
-  ASCENSION_THRESHOLD_GROWTH,
   AXES,
   AXIS_MULT_SAFETY_CAP,
+  CADENCE_BASE_COST,
+  CADENCE_COST_GROWTH,
+  CADENCE_EFFECT_PER_LEVEL,
   COST_MULT_FLOOR,
   COUCHE_2_UNLOCK_THRESHOLD,
+  DIMENSION_TIER_MULT,
+  DIMENSION_TIER_SIZE,
   GENERATORS,
+  GRAND_MENAGE_BASE_COST,
+  GRAND_MENAGE_CADENCE_DISCOUNT,
+  GRAND_MENAGE_COST_STEP,
+  REDEMARRAGE_BASE_COST,
+  REDEMARRAGE_COST_STEP,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
@@ -15,7 +21,10 @@ import {
   REDOUBLEMENT_THRESHOLD_GROWTH_MIN,
   TIER_BOOST_COEFF,
 } from './constants'
-import type { AxisId, GameState, GeneratorDef, GeneratorId } from './types'
+import type { AxisId, GameState, GeneratorId } from './types'
+
+export const LAST_GENERATOR_INDEX = GENERATORS.length - 1
+export const LAST_GENERATOR_ID = GENERATORS[LAST_GENERATOR_INDEX].id
 
 export function createInitialState(): GameState {
   const now = Date.now()
@@ -27,7 +36,9 @@ export function createInitialState(): GameState {
     earnedSinceReset: 0,
     bestCycleEarned: 0,
     owned,
-    ascensionLevels: Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>,
+    redemarrages: 0,
+    grandsMenages: 0,
+    cadenceLevel: 0,
     axisMultipliers: Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>,
     redoublements: 0,
     lastTickAt: now,
@@ -35,34 +46,28 @@ export function createInitialState(): GameState {
   }
 }
 
-/** Owned units required to ascend a generator currently at this ascension level. */
-export function ascensionThreshold(level: number): number {
-  return Math.round(ASCENSION_BASE_THRESHOLD * Math.pow(ASCENSION_THRESHOLD_GROWTH, level))
+/** AD-style stepped production multiplier: doubles every full decade owned (10, 20, 30...). */
+export function dimensionTierMultiplier(owned: number): number {
+  return Math.pow(DIMENSION_TIER_MULT, Math.floor(owned / DIMENSION_TIER_SIZE))
 }
 
-/** Permanent per-unit production multiplier granted by a generator's ascension level. */
-export function ascensionMultiplier(level: number): number {
-  return Math.pow(ASCENSION_PRODUCTION_GROWTH, level)
-}
-
-/** Ascending makes the generator refill slower: cost grows faster per level. */
-function effectiveCostGrowth(def: GeneratorDef, ascLevel: number): number {
-  return def.costGrowth * (1 + ASCENSION_COST_GROWTH_PENALTY * ascLevel)
+/**
+ * Redémarrage's cascading multiplier (AD's Dimension Boost effect): item 1 gets
+ * DIMENSION_TIER_MULT^redemarrages, each item after gets one power less, floored at x1.
+ */
+export function redemarrageCascadeMultiplier(index: number, redemarrages: number): number {
+  const power = Math.max(0, redemarrages - index)
+  return Math.pow(DIMENSION_TIER_MULT, power)
 }
 
 /** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
-export function generatorCost(
-  genId: GeneratorId,
-  owned: number,
-  qty: number,
-  costMult: number,
-  ascLevel = 0,
-): number {
+export function generatorCost(genId: GeneratorId, owned: number, qty: number, costMult: number): number {
   const def = GENERATORS.find((g) => g.id === genId)!
-  const growth = effectiveCostGrowth(def, ascLevel)
   let total = 0
   for (let i = 0; i < qty; i++) {
-    total += def.baseCost * Math.pow(growth, owned + i)
+    const n = owned + i
+    const decade = Math.floor(n / DIMENSION_TIER_SIZE)
+    total += def.baseCost * Math.pow(def.costGrowth, n) * Math.pow(def.scaling, decade)
   }
   return total * costMult
 }
@@ -73,15 +78,13 @@ export function maxAffordable(
   owned: number,
   budget: number,
   costMult: number,
-  ascLevel = 0,
 ): { qty: number; cost: number } {
   let qty = 0
   let cost = 0
   // Small owned counts in a prototype: linear probe is fine and keeps the math obviously correct.
   while (true) {
     const next =
-      generatorCost(genId, owned, qty + 1, costMult, ascLevel) -
-      (qty > 0 ? generatorCost(genId, owned, qty, costMult, ascLevel) : 0)
+      generatorCost(genId, owned, qty + 1, costMult) - (qty > 0 ? generatorCost(genId, owned, qty, costMult) : 0)
     if (cost + next > budget) break
     cost += next
     qty += 1
@@ -96,6 +99,7 @@ export interface Multipliers {
   productionMult: number
   instabilityMult: number
   synergyMult: number
+  cadenceMult: number
   totalProductionMult: number
 }
 
@@ -103,7 +107,11 @@ export interface Multipliers {
  * RI-style: each axis holds a permanent multiplier (starts at 1, no shop, no levels) that only
  * grows when a redoublement's gain is applied to it. `m` below is always that raw multiplier.
  */
-export function computeMultipliers(axisMultipliers: Record<AxisId, number>, instabilitySeed = 0): Multipliers {
+export function computeMultipliers(
+  axisMultipliers: Record<AxisId, number>,
+  cadenceLevel: number,
+  instabilitySeed = 0,
+): Multipliers {
   const speedMult = axisMultipliers.vitesse
   const productionMult = axisMultipliers.production
   const costMult = Math.max(COST_MULT_FLOOR, 1 / Math.sqrt(axisMultipliers.cout))
@@ -117,9 +125,19 @@ export function computeMultipliers(axisMultipliers: Record<AxisId, number>, inst
     axisMultipliers.vitesse - 1 + (axisMultipliers.production - 1) + (axisMultipliers.cout - 1) + (instabilityMult - 1)
   const synergyMult = 1 + (axisMultipliers.synergie - 1) * Math.sqrt(Math.max(0, otherGrowth)) * 0.1
 
-  const totalProductionMult = speedMult * productionMult * wobblyInstabilityMult * synergyMult
+  const cadenceMult = 1 + cadenceLevel * CADENCE_EFFECT_PER_LEVEL
 
-  return { costMult, speedMult, productionMult, instabilityMult: wobblyInstabilityMult, synergyMult, totalProductionMult }
+  const totalProductionMult = speedMult * productionMult * wobblyInstabilityMult * synergyMult * cadenceMult
+
+  return {
+    costMult,
+    speedMult,
+    productionMult,
+    instabilityMult: wobblyInstabilityMult,
+    synergyMult,
+    cadenceMult,
+    totalProductionMult,
+  }
 }
 
 /** Multiplier a generator gets from how many of the next tier up are owned. */
@@ -127,30 +145,75 @@ export function tierBoostMultiplier(ownedOfTierAbove: number): number {
   return 1 + TIER_BOOST_COEFF * ownedOfTierAbove
 }
 
-/** Puanteur/sec produced by a single generator tier right now, tier-boost included. */
+/** Puanteur/sec produced by a single generator tier right now, tier-boost and redémarrage included. */
 export function generatorProductionPerSecond(
   index: number,
   owned: Record<GeneratorId, number>,
-  ascensionLevels: Record<GeneratorId, number>,
+  redemarrages: number,
   mult: Multipliers,
 ): number {
   const def = GENERATORS[index]
   const above = GENERATORS[index + 1]
-  const ascMult = ascensionMultiplier(ascensionLevels[def.id])
+  const dimMult = dimensionTierMultiplier(owned[def.id])
+  const cascadeMult = redemarrageCascadeMultiplier(index, redemarrages)
   const tierBoost = above ? tierBoostMultiplier(owned[above.id]) : 1
-  return def.baseProduction * owned[def.id] * ascMult * tierBoost * mult.totalProductionMult
+  return def.baseProduction * owned[def.id] * dimMult * cascadeMult * tierBoost * mult.totalProductionMult
 }
 
 export function productionPerSecond(
   owned: Record<GeneratorId, number>,
-  ascensionLevels: Record<GeneratorId, number>,
+  redemarrages: number,
   mult: Multipliers,
 ): number {
   let total = 0
   for (let i = 0; i < GENERATORS.length; i++) {
-    total += generatorProductionPerSecond(i, owned, ascensionLevels, mult)
+    total += generatorProductionPerSecond(i, owned, redemarrages, mult)
   }
   return total
+}
+
+/** Puanteur (in units of the last item) needed for the next Redémarrage. */
+export function redemarrageCost(redemarrages: number): number {
+  return REDEMARRAGE_BASE_COST + REDEMARRAGE_COST_STEP * redemarrages
+}
+
+/** Puanteur (in units of the last item) needed for the next Grand ménage. */
+export function grandMenageCost(grandsMenages: number): number {
+  return GRAND_MENAGE_BASE_COST + GRAND_MENAGE_COST_STEP * grandsMenages
+}
+
+/** Puanteur cost of the next Cadence level — cheaper the more Grands ménages this cycle. */
+export function cadenceCost(cadenceLevel: number, grandsMenages: number): number {
+  const discount = 1 + grandsMenages * GRAND_MENAGE_CADENCE_DISCOUNT
+  return (CADENCE_BASE_COST * Math.pow(CADENCE_COST_GROWTH, cadenceLevel)) / discount
+}
+
+/** Redémarrage: pays Cave units, resets every item except Cave, cascading boost kicks in. */
+export function performRedemarrage(state: GameState): GameState {
+  const cost = redemarrageCost(state.redemarrages)
+  if (state.owned[LAST_GENERATOR_ID] < cost) return state
+  const owned = { ...state.owned }
+  for (const def of GENERATORS) {
+    if (def.id === LAST_GENERATOR_ID) continue
+    owned[def.id] = 0
+  }
+  owned[LAST_GENERATOR_ID] -= cost
+  return { ...state, owned, redemarrages: state.redemarrages + 1 }
+}
+
+/** Grand ménage: pays Cave units, resets every item and redemarrages, cheapens Cadence. */
+export function performGrandMenage(state: GameState): GameState {
+  const cost = grandMenageCost(state.grandsMenages)
+  if (state.owned[LAST_GENERATOR_ID] < cost) return state
+  const owned = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
+  return { ...state, owned, redemarrages: 0, grandsMenages: state.grandsMenages + 1 }
+}
+
+/** Cadence: pays puanteur directly, permanent flat production multiplier for the rest of the cycle. */
+export function performBuyCadence(state: GameState): GameState {
+  const cost = cadenceCost(state.cadenceLevel, state.grandsMenages)
+  if (state.puanteur < cost) return state
+  return { ...state, puanteur: state.puanteur - cost, cadenceLevel: state.cadenceLevel + 1 }
 }
 
 /** Per-step growth rate of the threshold, decaying from a high early rate toward a low one. */
@@ -207,8 +270,8 @@ export function isCouche2Unlocked(bestCycleEarned: number): boolean {
  * catch-up on load and for catching up time lost while the tab was backgrounded/throttled.
  */
 export function applyElapsedProduction(state: GameState, seconds: number): { state: GameState; gained: number } {
-  const mult = computeMultipliers(state.axisMultipliers, 0.5)
-  const rate = productionPerSecond(state.owned, state.ascensionLevels, mult)
+  const mult = computeMultipliers(state.axisMultipliers, state.cadenceLevel, 0.5)
+  const rate = productionPerSecond(state.owned, state.redemarrages, mult)
   const gained = rate * seconds
   return {
     state: {
@@ -221,3 +284,4 @@ export function applyElapsedProduction(state: GameState, seconds: number): { sta
     gained,
   }
 }
+

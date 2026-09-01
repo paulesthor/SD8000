@@ -5,14 +5,14 @@ import type { AxisDef, GeneratorDef } from './types'
 const EARLY_GAME_SPEED = 20
 
 export const GENERATORS: GeneratorDef[] = [
-  { id: 'pc', name: 'PC pourri', baseCost: 10, costGrowth: 1.14, baseProduction: 0.2 * EARLY_GAME_SPEED },
-  { id: 'clavier', name: 'Clavier plein de miettes', baseCost: 60, costGrowth: 1.15, baseProduction: 1.2 * EARLY_GAME_SPEED },
-  { id: 'chaussettes', name: 'Chaussettes du développeur', baseCost: 400, costGrowth: 1.16, baseProduction: 7 * EARLY_GAME_SPEED },
-  { id: 'mug', name: 'Mug de café périmé', baseCost: 2800, costGrowth: 1.17, baseProduction: 42 * EARLY_GAME_SPEED },
-  { id: 'routeur', name: 'Routeur wifi qui rame', baseCost: 20000, costGrowth: 1.18, baseProduction: 260 * EARLY_GAME_SPEED },
-  { id: 'poubelle', name: 'Poubelle de la salle info', baseCost: 150000, costGrowth: 1.19, baseProduction: 1600 * EARLY_GAME_SPEED },
-  { id: 'serveur', name: 'Serveur qui chauffe dans un placard', baseCost: 1200000, costGrowth: 1.2, baseProduction: 10000 * EARLY_GAME_SPEED },
-  { id: 'cave', name: 'Cave / datacenter officieux', baseCost: 10000000, costGrowth: 1.21, baseProduction: 65000 * EARLY_GAME_SPEED },
+  { id: 'pc', name: 'PC pourri', baseCost: 10, costGrowth: 1.14, scaling: 1.55, baseProduction: 0.2 * EARLY_GAME_SPEED },
+  { id: 'clavier', name: 'Clavier plein de miettes', baseCost: 60, costGrowth: 1.15, scaling: 1.6, baseProduction: 1.2 * EARLY_GAME_SPEED },
+  { id: 'chaussettes', name: 'Chaussettes du développeur', baseCost: 400, costGrowth: 1.16, scaling: 1.65, baseProduction: 7 * EARLY_GAME_SPEED },
+  { id: 'mug', name: 'Mug de café périmé', baseCost: 2800, costGrowth: 1.17, scaling: 1.7, baseProduction: 42 * EARLY_GAME_SPEED },
+  { id: 'routeur', name: 'Routeur wifi qui rame', baseCost: 20000, costGrowth: 1.18, scaling: 1.75, baseProduction: 260 * EARLY_GAME_SPEED },
+  { id: 'poubelle', name: 'Poubelle de la salle info', baseCost: 150000, costGrowth: 1.19, scaling: 1.8, baseProduction: 1600 * EARLY_GAME_SPEED },
+  { id: 'serveur', name: 'Serveur qui chauffe dans un placard', baseCost: 1200000, costGrowth: 1.2, scaling: 1.85, baseProduction: 10000 * EARLY_GAME_SPEED },
+  { id: 'cave', name: 'Cave / datacenter officieux', baseCost: 10000000, costGrowth: 1.21, scaling: 1.9, baseProduction: 65000 * EARLY_GAME_SPEED },
 ]
 
 export const AXES: AxisDef[] = [
@@ -50,13 +50,49 @@ export const AXES: AxisDef[] = [
  */
 export const TIER_BOOST_COEFF = 0.02
 
-/** Owned units needed to ascend a generator at level 0; grows by ASCENSION_THRESHOLD_GROWTH per level. */
-export const ASCENSION_BASE_THRESHOLD = 50
-export const ASCENSION_THRESHOLD_GROWTH = 1.6
-/** Permanent per-unit production multiplier per ascension level (compounds). */
-export const ASCENSION_PRODUCTION_GROWTH = 1.7
-/** Extra cost-growth penalty applied per ascension level — makes refilling slower each time. */
-export const ASCENSION_COST_GROWTH_PENALTY = 0.05
+// AD-style dimension/boost/galaxy stack, reskinned. Nested inside a single redoublement cycle:
+// Items -> Redémarrage -> Grand ménage -> Redoublement, each level resetting the one(s) below it
+// but leaving a permanent-for-the-cycle bonus behind, same shape as AD's
+// Dimensions -> Dimension Boost -> Antimatter Galaxy -> Infinity.
+//
+// We reuse AD's real formulas' *shape* (stepped x2 production per 10 owned, cost that itself
+// jumps every 10 owned, a boost that resets everything below it for a cascading multiplier, a
+// galaxy-equivalent that resets further but cheapens a tickspeed-equivalent) — not its literal
+// constants, which are tuned for AD's endgame scale (up to 1e308) and would be meaningless here
+// where couche 2 unlocks at 1e13. These are recalibrated and verified by simulation instead
+// (see the tsx-based real-engine sim referenced in the redoublement threshold comment below).
+
+/** Every `DIMENSION_TIER_SIZE` owned, an item's production multiplier doubles (AD: dims double per 10). */
+export const DIMENSION_TIER_SIZE = 10
+export const DIMENSION_TIER_MULT = 2
+
+/**
+ * Redémarrage (AD's Dimension Boost): costs units of the last item (Cave), resets items 1-7
+ * (everything but Cave) to 0, and grants a cascading multiplier — item 1 gets
+ * DIMENSION_TIER_MULT^redemarrages, item 2 gets one power less, down to a floor of x1 — exactly
+ * AD's "x2 to dimension 1, halved each dimension after, min x1" boost effect.
+ */
+export const REDEMARRAGE_BASE_COST = 20
+export const REDEMARRAGE_COST_STEP = 15
+
+/**
+ * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item AND redemarrages
+ * to 0, but makes Cadence purchases cheaper for the rest of this cycle (AD: galaxies cheapen
+ * tickspeed). The bigger, rarer reset in the stack.
+ */
+export const GRAND_MENAGE_BASE_COST = 80
+export const GRAND_MENAGE_COST_STEP = 60
+/** Each grand ménage divides future Cadence cost by (1 + grandsMenages * this). */
+export const GRAND_MENAGE_CADENCE_DISCOUNT = 0.35
+
+/**
+ * Cadence (AD's tickspeed): bought directly with puanteur, survives Redémarrage/Grand ménage
+ * (only wiped by redoublement itself, like AD's tickspeed upgrades survive galaxies). Each level
+ * is a flat permanent production multiplier — the "the game runs faster" lever.
+ */
+export const CADENCE_BASE_COST = 50
+export const CADENCE_COST_GROWTH = 1.35
+export const CADENCE_EFFECT_PER_LEVEL = 0.25
 
 // RI-style redoublement: no currency, no shop. Redoubling grants a multiplier — computed from
 // puanteur earned this run relative to a threshold, rendements décroissants — applied directly
@@ -125,21 +161,22 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  * but is the current run's peak, not a lifetime sum across many of them.
  *
  * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
- * Infinity, via *optimized* play, not casual play). Simulated with the log gain curve: a
- * near-optimal strategy (redoubling once earned is comfortably past the threshold — no more
- * hard "sweet spot" to hit since gain never caps) crosses 1e13 bestCycleEarned at ~79 minutes;
- * an even more aggressive strategy reaches it at ~42 minutes — a real but modest spread (~1.9x),
- * not the 10x+ swings the earlier formulas produced. Casual play lands well past that, same as
- * RI where the benchmark assumes good play.
+ * Infinity, via *optimized* play, not casual play). Re-simulated with the full AD-style stack
+ * (dimension tier doubling, Redémarrage cascade, Grand ménage, Cadence) via the real engine:
+ * a near-optimal strategy (buy max every generator, redémarrer/faire le ménage/monter la cadence
+ * as soon as affordable, redoubler once comfortably past threshold) reaches 1.16e18
+ * bestCycleEarned at ~80 minutes. Casual play (patient x3, ignoring the meta mechanics
+ * entirely) is still at ~2.3e13 by that same mark — many hours behind — so the benchmark still
+ * assumes good play, same as RI's own guide.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 1e13
+export const COUCHE_2_UNLOCK_THRESHOLD = 1.2e18
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
-// Bumped to v4: full wipe requested — existing local saves were stuck holding Infinity from
-// the pre-fix runaway bug, and Infinity poisons every further calculation it touches, so no
-// migration could recover them. Also coincides with the tier-boost generator rework below.
-export const SAVE_KEY = 'sd8000-save-v4'
+// Bumped to v5: the AD dimension/boost/galaxy rework below replaces the whole item production
+// and ascension model (per-item ascension removed entirely, replaced by the global
+// Redémarrage/Grand ménage stack) — old saves' numbers wouldn't mean the same thing anymore.
+export const SAVE_KEY = 'sd8000-save-v5'
 export const AUTOSAVE_INTERVAL_MS = 10_000
 export const TICK_MS = 100
