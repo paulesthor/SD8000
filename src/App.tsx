@@ -2,15 +2,14 @@ import { useState } from 'react'
 import { useGameEngine } from './game/useGameEngine'
 import { formatNumber, formatRate } from './game/format'
 import { GeneratorList } from './components/GeneratorList'
-import { AxesPanel } from './components/AxesPanel'
-import { BoostsPanel } from './components/BoostsPanel'
-import { RedoublementPanel } from './components/RedoublementPanel'
+import { ProgressionPanel } from './components/ProgressionPanel'
+import { QuickStats } from './components/QuickStats'
 import { SettingsPanel } from './components/SettingsPanel'
 import { OfflineModal } from './components/OfflineModal'
 import { Scene } from './components/Scene'
-import { AxesIcon, BoostsIcon, GeneratorsIcon, RedoublementIcon, SettingsIcon } from './components/icons'
+import { GeneratorsIcon, ProgressionIcon, SettingsIcon } from './components/icons'
 
-type Tab = 'generateurs' | 'boosts' | 'axes' | 'redoublement' | 'reglages'
+type Tab = 'generateurs' | 'progression' | 'reglages'
 
 export default function App() {
   const engine = useGameEngine()
@@ -28,13 +27,16 @@ export default function App() {
         <div className="header-sub">Redoublement #{engine.state.redoublements}</div>
       </header>
 
-      <Scene engine={engine} />
+      {tab === 'generateurs' && (
+        <>
+          <QuickStats engine={engine} />
+          <Scene engine={engine} />
+        </>
+      )}
 
       <main className="content">
         {tab === 'generateurs' && <GeneratorList engine={engine} />}
-        {tab === 'boosts' && <BoostsPanel engine={engine} />}
-        {tab === 'axes' && <AxesPanel engine={engine} />}
-        {tab === 'redoublement' && <RedoublementPanel engine={engine} />}
+        {tab === 'progression' && <ProgressionPanel engine={engine} />}
         {tab === 'reglages' && <SettingsPanel engine={engine} />}
       </main>
 
@@ -43,17 +45,9 @@ export default function App() {
           <GeneratorsIcon />
           <span>Générateurs</span>
         </button>
-        <button className={tab === 'boosts' ? 'active' : ''} onClick={() => setTab('boosts')}>
-          <BoostsIcon />
-          <span>Boosts</span>
-        </button>
-        <button className={tab === 'axes' ? 'active' : ''} onClick={() => setTab('axes')}>
-          <AxesIcon />
-          <span>Axes</span>
-        </button>
-        <button className={tab === 'redoublement' ? 'active' : ''} onClick={() => setTab('redoublement')}>
-          <RedoublementIcon />
-          <span>Redoublement</span>
+        <button className={tab === 'progression' ? 'active' : ''} onClick={() => setTab('progression')}>
+          <ProgressionIcon />
+          <span>Progression</span>
         </button>
         <button className={tab === 'reglages' ? 'active' : ''} onClick={() => setTab('reglages')}>
           <SettingsIcon />

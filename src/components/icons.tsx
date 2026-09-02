@@ -44,6 +44,15 @@ export function BoostsIcon() {
   )
 }
 
+export function ProgressionIcon() {
+  return (
+    <svg {...common}>
+      <path d="M3 17l6-6 4 4 8-8" />
+      <path d="M15 7h6v6" />
+    </svg>
+  )
+}
+
 export function RedoublementIcon() {
   return (
     <svg {...common}>
