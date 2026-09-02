@@ -24,6 +24,12 @@ function migrate(parsed: GameState): GameState {
       number
     >
   }
+  if (!parsed.itemMultipliers) {
+    parsed.itemMultipliers = Object.fromEntries(GENERATORS.map((g) => [g.id, 1])) as Record<
+      GeneratorId,
+      number
+    >
+  }
   if (typeof parsed.grandsMenages !== 'number') parsed.grandsMenages = 0
   if (typeof parsed.cadenceLevel !== 'number') parsed.cadenceLevel = 0
   return parsed

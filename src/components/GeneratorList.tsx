@@ -3,13 +3,13 @@ import {
   canAscendItem,
   dimensionTierMultiplier,
   generatorCost,
-  generatorProductionPerSecond,
   itemAscensionCap,
   itemAscensionMultiplier,
+  itemGrowthRate,
   maxAffordable,
   tierBoostMultiplier,
 } from '../game/engine'
-import { formatMultiplier, formatNumber, formatRate } from '../game/format'
+import { formatMultiplier, formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 import { Monogram } from './icons'
 
@@ -21,10 +21,11 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
       {GENERATORS.map((def, index) => {
         const owned = engine.state.owned[def.id]
         const ascLevel = engine.state.ascensionLevels[def.id]
+        const itemMult = engine.state.itemMultipliers[def.id]
 
         const cost1 = generatorCost(def.id, owned, 1, costMult, ascLevel)
         const { qty: maxQty, cost: maxCost } = maxAffordable(def.id, owned, engine.state.puanteur, costMult, ascLevel)
-        const rate = generatorProductionPerSecond(index, engine.state.owned, engine.state.ascensionLevels, engine.multipliers)
+        const growth = itemGrowthRate(index, engine.state.owned, engine.state.ascensionLevels)
 
         const above = GENERATORS[index + 1]
         const tierBoost = above ? tierBoostMultiplier(engine.state.owned[above.id]) : null
@@ -41,10 +42,10 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
               <div>
                 <div className="generator-name">
                   {def.name}
-                  {dimMult > 1 && <span className="asc-badge">x{formatMultiplier(dimMult)} palier</span>}
+                  {dimMult > 1 && <span className="asc-badge">x{formatMultiplier(dimMult)} vitesse</span>}
                 </div>
                 <div className="generator-meta">
-                  x{owned} · {formatRate(rate)}
+                  Nv.{owned} · multiplicateur x{formatMultiplier(itemMult)} (+{formatNumber(growth)}/s)
                   {tierBoost && tierBoost > 1 && (
                     <span className="tier-boost"> · boosté x{formatMultiplier(tierBoost)} par {above!.name}</span>
                   )}
@@ -63,7 +64,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                 Redémarrer
                 <span className="cost">
                   {canAscend
-                    ? `→ x${formatMultiplier(nextAscMult)}`
+                    ? `→ x${formatMultiplier(nextAscMult)} vitesse`
                     : `${formatNumber(owned)}/${ascCap}`}
                 </span>
               </button>

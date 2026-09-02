@@ -1,18 +1,19 @@
 import type { AxisDef, GeneratorDef } from './types'
 
-// Pacing target (RI/AD-style): the very first purchase should be affordable in ~15s of idle
-// production, not minutes — hence EARLY_GAME_SPEED scaling up every baseProduction below.
-const EARLY_GAME_SPEED = 20
-
+// Relative growth-rate weighting between items — later (pricier) items grow their own
+// multiplier faster once bought, same spirit as the old baseProduction weighting, just applied
+// to a growth *rate* instead of a direct output. Absolute pacing is governed by
+// ITEM_MULT_GROWTH_SCALE and PRODUCTION_EXPONENT in the item-multiplier block below, tuned by
+// simulation against the real engine rather than this per-item ratio.
 export const GENERATORS: GeneratorDef[] = [
-  { id: 'pc', name: 'PC pourri', baseCost: 10, costGrowth: 1.14, scaling: 1.55, baseProduction: 0.2 * EARLY_GAME_SPEED },
-  { id: 'clavier', name: 'Clavier plein de miettes', baseCost: 60, costGrowth: 1.15, scaling: 1.6, baseProduction: 1.2 * EARLY_GAME_SPEED },
-  { id: 'chaussettes', name: 'Chaussettes du développeur', baseCost: 400, costGrowth: 1.16, scaling: 1.65, baseProduction: 7 * EARLY_GAME_SPEED },
-  { id: 'mug', name: 'Mug de café périmé', baseCost: 2800, costGrowth: 1.17, scaling: 1.7, baseProduction: 42 * EARLY_GAME_SPEED },
-  { id: 'routeur', name: 'Routeur wifi qui rame', baseCost: 20000, costGrowth: 1.18, scaling: 1.75, baseProduction: 260 * EARLY_GAME_SPEED },
-  { id: 'poubelle', name: 'Poubelle de la salle info', baseCost: 150000, costGrowth: 1.19, scaling: 1.8, baseProduction: 1600 * EARLY_GAME_SPEED },
-  { id: 'serveur', name: 'Serveur qui chauffe dans un placard', baseCost: 1200000, costGrowth: 1.2, scaling: 1.85, baseProduction: 10000 * EARLY_GAME_SPEED },
-  { id: 'cave', name: 'Cave / datacenter officieux', baseCost: 10000000, costGrowth: 1.21, scaling: 1.9, baseProduction: 65000 * EARLY_GAME_SPEED },
+  { id: 'pc', name: 'PC pourri', baseCost: 10, costGrowth: 1.14, scaling: 1.55, growthRate: 0.2 },
+  { id: 'clavier', name: 'Clavier plein de miettes', baseCost: 60, costGrowth: 1.15, scaling: 1.6, growthRate: 1.2 },
+  { id: 'chaussettes', name: 'Chaussettes du développeur', baseCost: 400, costGrowth: 1.16, scaling: 1.65, growthRate: 7 },
+  { id: 'mug', name: 'Mug de café périmé', baseCost: 2800, costGrowth: 1.17, scaling: 1.7, growthRate: 42 },
+  { id: 'routeur', name: 'Routeur wifi qui rame', baseCost: 20000, costGrowth: 1.18, scaling: 1.75, growthRate: 260 },
+  { id: 'poubelle', name: 'Poubelle de la salle info', baseCost: 150000, costGrowth: 1.19, scaling: 1.8, growthRate: 1600 },
+  { id: 'serveur', name: 'Serveur qui chauffe dans un placard', baseCost: 1200000, costGrowth: 1.2, scaling: 1.85, growthRate: 10000 },
+  { id: 'cave', name: 'Cave / datacenter officieux', baseCost: 10000000, costGrowth: 1.21, scaling: 1.9, growthRate: 65000 },
 ]
 
 export const AXES: AxisDef[] = [
@@ -69,34 +70,60 @@ export const DIMENSION_TIER_SIZE = 10
 export const DIMENSION_TIER_MULT = 2
 
 /**
+ * Item multiplier (RI's "circles"): puanteur/sec is no longer a sum of what each item produces —
+ * each item just holds its own multiplier (itemMultipliers in GameState), starting at 1 and only
+ * ever growing, a little every tick, faster the higher that item's level. Total production is
+ * the *product* of all 8 of these, raised to PRODUCTION_EXPONENT to keep 8 compounding
+ * multipliers from exploding uncontrollably, times the usual axis/cadence multipliers.
+ *
+ * First simulation pass showed unowned items visibly growing their own multiplier anyway (the
+ * fresh-game screen showed "Mug de café périmé x3.44" before a single unit was ever bought) —
+ * the per-item growthRate weight above is large for late items by design, and the rate formula
+ * had dropped the `owned` factor the old additive-production version always multiplied by, so
+ * that weight alone drove growth regardless of investment. Restored `owned` as a linear factor
+ * (owned=0 now means exactly 0 growth, same as it meant 0 production before) and rescaled
+ * ITEM_MULT_GROWTH_SCALE and PRODUCTION_EXPONENT afterward to land back on RI's 70-100min
+ * benchmark: near-optimal play (buy everything affordable, ascend/grand-ménage/cadence as soon
+ * as worthwhile) reaches couche 2 at ~93min, a more aggressive strategy at ~84min, both inside
+ * the window; stable over 24h simulated, no NaN/Infinity.
+ */
+export const ITEM_MULT_GROWTH_SCALE = 0.1
+export const PRODUCTION_EXPONENT = 0.245
+
+/**
  * Per-item ascension (replaces the old global Redémarrage/Dimension Boost — retour utilisateur :
  * un bouton par ligne d'item plutôt qu'un mécanisme global). Modeled on Revolution Idle's own
  * circle-ascension mechanic after checking their wiki, rather than guessing: RI does NOT reset a
- * circle to 0 — ascending "resets a circle to level 5 [...] and raises its level cap by 10". Two
- * things follow from that, both different from our first pass:
- * - The reset lands on a floor, not 0 — but a *fixed* floor turned out not to be enough here.
- *   Our own production curve is exponential in owned (dimensionTierMultiplier doubles every 10
- *   owned), so a small fixed floor like 10 still meant a ~1280x production crater on ascending
- *   (verified with the real engine) — technically not 0, but still exactly the "2B -> 29M"
- *   complaint. ITEM_ASCENSION_RESET_FRACTION resets to a *fraction of the cap you just filled*
- *   instead (half, by default), which keeps the item's dimension-tier multiplier substantial
- *   right after ascending rather than resetting it almost to nothing.
- * - The cap itself grows every ascension (ITEM_ASCENSION_CAP_GROWTH added per level), instead of
- *   staying fixed at 100 forever. This is what makes each successive ascension a genuinely bigger
- *   undertaking (RI's own pacing lever) rather than leaning entirely on COST_PENALTY to slow
- *   things down — so the cost penalty above could come back down some without repeating the
- *   "instant rebuy 58/100" problem from the first pass.
+ * circle's accumulated multiplier — ascending "resets a circle to level 5 [...] and raises its
+ * level cap by 10". Now that items are RI-style circles (multiplier above, never reset by
+ * ascending — only *level* resets, which only controls growth *speed*), redémarrer an item can
+ * no longer crater its production the way it did when level directly drove output: the
+ * multiplier it already earned stays exactly where it was, only how fast it grows next resets to
+ * a small floor (ITEM_ASCENSION_RESET_LEVEL, matching RI's own "5" rather than the ITEM_ASCENSION
+ * _RESET_FRACTION hack from the previous (additive-production) version of this mechanic, which is
+ * no longer needed. The cap itself still grows every ascension (ITEM_ASCENSION_CAP_GROWTH per
+ * level) so each successive ascension is a genuinely bigger undertaking, RI's own pacing lever.
  */
 export const ITEM_ASCENSION_CAP = 100
 export const ITEM_ASCENSION_CAP_GROWTH = 50
-export const ITEM_ASCENSION_RESET_FRACTION = 0.5
+export const ITEM_ASCENSION_RESET_LEVEL = 5
 export const ITEM_ASCENSION_BOOST = 4
-export const ITEM_ASCENSION_COST_PENALTY = 1.2
+/**
+ * Much lower than the additive-production version of this mechanic used (1.2, itself raised from
+ * 0.05): retour utilisateur — a level going from a few billion to 5 sextillion right after one
+ * ascension. That harsh a penalty existed to stop "instant rebuy" from undoing a production
+ * crater that no longer exists in the circle model (ascending doesn't touch the item's
+ * multiplier at all anymore, only its level/growth-speed) — so the whole reason for a steep
+ * penalty is gone. What's left to pace is successive ascensions getting too easy to spam, which
+ * ITEM_ASCENSION_CAP_GROWTH above already handles on its own.
+ */
+export const ITEM_ASCENSION_COST_PENALTY = 0.1
 
 /**
- * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item AND every item's
- * ascension level to 0, but makes Cadence purchases cheaper for the rest of this cycle (AD:
- * galaxies cheapen tickspeed). The bigger, rarer reset in the stack.
+ * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item's level AND
+ * ascension level to 0 (their multipliers are untouched, same reasoning as per-item ascension
+ * above), but makes Cadence purchases cheaper for the rest of this cycle (AD: galaxies cheapen
+ * tickspeed). The bigger, rarer reset in the stack.
  */
 export const GRAND_MENAGE_BASE_COST = 80
 export const GRAND_MENAGE_COST_STEP = 60
@@ -193,25 +220,20 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  * but is the current run's peak, not a lifetime sum across many of them.
  *
  * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
- * Infinity, via *optimized* play, not casual play). Re-simulated with the full AD-style stack
- * (dimension tier doubling, Redémarrage cascade, Grand ménage, Cadence) via the real engine —
- * and again each time a balance pass changed how much power the stack produces (see
- * REDOUBLEMENT_BASE_THRESHOLD's comment for the first pass, CADENCE_COST_GROWTH's for the most
- * recent one, which nerfed Cadence from an essentially-free spam to a real cost/benefit choice
- * and knocked total power down accordingly): a near-optimal strategy (buy max every generator,
- * redémarrer/faire le ménage/monter la cadence as soon as affordable, redoubler once comfortably
- * past threshold) reaches ~1.4e14 bestCycleEarned at ~80 minutes. Casual play (patient x3,
- * ignoring the meta mechanics entirely) is still at ~2.3e12 by that same mark — hours behind —
- * so the benchmark still assumes good play, same as RI's own guide.
+ * Infinity, via *optimized* play, not casual play) — re-simulated with the real engine after
+ * every balance pass since (see REDOUBLEMENT_BASE_THRESHOLD's comment for the first, Cadence's
+ * for the biggest, PRODUCTION_EXPONENT's for the switch to RI's own circles/product model). The
+ * value here didn't need to move for the circles rewrite — PRODUCTION_EXPONENT was tuned instead
+ * to land back on the same 74-82min window this threshold already represented.
  */
 export const COUCHE_2_UNLOCK_THRESHOLD = 1.4e14
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
 
-// Bumped to v5: the AD dimension/boost/galaxy rework below replaces the whole item production
-// and ascension model (per-item ascension removed entirely, replaced by the global
-// Redémarrage/Grand ménage stack) — old saves' numbers wouldn't mean the same thing anymore.
-export const SAVE_KEY = 'sd8000-save-v5'
+// Bumped to v6: items switched from directly producing puanteur to RI's "circles" model (each
+// item just holds a growing multiplier, puanteur/sec is the product of all of them) — a
+// completely different meaning for `owned`/production, old saves' numbers wouldn't translate.
+export const SAVE_KEY = 'sd8000-save-v6'
 export const AUTOSAVE_INTERVAL_MS = 10_000
 export const TICK_MS = 100

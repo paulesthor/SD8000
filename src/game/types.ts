@@ -17,8 +17,8 @@ export interface GeneratorDef {
   costGrowth: number
   /** Extra cost multiplier applied once per full decade (10, 20, 30...) owned — AD-style. */
   scaling: number
-  /** Puanteur/sec produced per owned unit, before multipliers. */
-  baseProduction: number
+  /** Relative weight of how fast this item's own multiplier grows per second of "lap" time. */
+  growthRate: number
 }
 
 export type AxisId = 'vitesse' | 'production' | 'cout' | 'instabilite' | 'synergie'
@@ -41,11 +41,24 @@ export interface GameState {
    * total across many of them. Gates couche 2.
    */
   bestCycleEarned: number
+  /**
+   * Level bought with puanteur for each item — same role "owned" used to have, renamed because
+   * items no longer directly produce puanteur; level now only sets how fast that item's own
+   * multiplier (itemMultipliers below) grows.
+   */
   owned: Record<GeneratorId, number>
   /**
-   * Per-item ascension level — each item independently caps out at ITEM_ASCENSION_CAP owned;
-   * past that, redémarrer that one item resets its owned count to 0 in exchange for a permanent
-   * per-item production boost. Replaces the old global Redémarrage (Dimension Boost) mechanic.
+   * Each item's own multiplier — RI-style "circles": every tick it grows a little on its own
+   * (faster the higher that item's level), independently of every other item. Puanteur/sec is
+   * the *product* of all these, not their sum. Starts at 1 (neutral) and only ever grows —
+   * redémarrer (below) resets an item's level, never this.
+   */
+  itemMultipliers: Record<GeneratorId, number>
+  /**
+   * Per-item ascension level — each item independently caps out at a level (growing every time,
+   * see itemAscensionCap); past that, redémarrer resets that item's *level* only (its multiplier
+   * above is untouched) in exchange for a permanent boost to how fast it grows from then on.
+   * Replaces the old global Redémarrage (Dimension Boost) mechanic.
    */
   ascensionLevels: Record<GeneratorId, number>
   /**

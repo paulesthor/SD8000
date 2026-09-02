@@ -20,6 +20,7 @@ import {
   productionPerSecond,
   redoublementMultiplierGain,
   redoublementThreshold,
+  tickItemMultipliers,
 } from './engine'
 import { loadState, resetSave, saveState } from './save'
 import type { AxisId, GameState, GeneratorId } from './types'
@@ -82,12 +83,15 @@ export function useGameEngine() {
   useEffect(() => {
     const id = setInterval(() => {
       setState((prev) => {
+        const dtSeconds = TICK_MS / 1000
         const mult = computeMultipliers(prev.axisMultipliers, prev.cadenceLevel, Math.random())
-        const rate = productionPerSecond(prev.owned, prev.ascensionLevels, mult)
-        const gained = rate * (TICK_MS / 1000)
+        const rate = productionPerSecond(prev.itemMultipliers, mult)
+        const gained = rate * dtSeconds
         const earnedSinceReset = prev.earnedSinceReset + gained
+        const itemMultipliers = tickItemMultipliers(prev.itemMultipliers, prev.owned, prev.ascensionLevels, dtSeconds)
         return {
           ...prev,
+          itemMultipliers,
           puanteur: prev.puanteur + gained,
           earnedSinceReset,
           bestCycleEarned: Math.max(prev.bestCycleEarned, earnedSinceReset),
@@ -116,8 +120,8 @@ export function useGameEngine() {
     [state.axisMultipliers, state.cadenceLevel],
   )
   const rate = useMemo(
-    () => productionPerSecond(state.owned, state.ascensionLevels, mult),
-    [state.owned, state.ascensionLevels, mult],
+    () => productionPerSecond(state.itemMultipliers, mult),
+    [state.itemMultipliers, mult],
   )
 
   const buyGenerator = useCallback((id: GeneratorId, mode: 1 | 'max') => {
