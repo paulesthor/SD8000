@@ -59,6 +59,14 @@ export interface GameState {
    * gain is applied to that axis — no currency, no shop, RI-style.
    */
   axisMultipliers: Record<AxisId, number>
+  /**
+   * Per-axis floor: the earnedSinceReset reached the last time this axis was chosen at a
+   * redoublement (0 if never chosen). Investing in an axis again requires reaching at least
+   * this much, on top of the normal redoublement threshold — otherwise a heavily-invested axis
+   * could keep compounding on trivially-cheap redoublements while other axes stayed gated by
+   * the (potentially much higher) real threshold.
+   */
+  axisFloors: Record<AxisId, number>
   /** Total number of redoublements performed, ever. */
   redoublements: number
   lastTickAt: number

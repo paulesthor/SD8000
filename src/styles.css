@@ -434,6 +434,17 @@ button {
   color: var(--accent);
 }
 
+.boost-buttons-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.boost-buttons-row .boost-button {
+  margin-top: 0;
+}
+
 .boost-button {
   width: 100%;
   margin-top: 10px;
@@ -553,7 +564,6 @@ button {
 .axis-choice-button {
   width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   background: var(--bg-card);
   color: var(--text);
@@ -566,14 +576,32 @@ button {
   text-align: left;
 }
 
-.axis-choice-button:active {
+.axis-choice-button:not(:disabled):active {
   background: var(--accent-dim);
+}
+
+.axis-choice-button:disabled {
+  opacity: 0.5;
+  border-color: var(--border);
+}
+
+.axis-choice-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
 }
 
 .axis-choice-values {
   color: var(--accent);
   font-weight: 700;
   font-size: 0.85rem;
+}
+
+.axis-choice-locked {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.78rem;
 }
 
 .bottom-nav {

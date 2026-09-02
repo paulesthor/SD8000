@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTOSAVE_INTERVAL_MS, COUCHE_2_UNLOCK_THRESHOLD, TICK_MS } from './constants'
+import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, TICK_MS } from './constants'
 import {
   applyAxisGain,
   applyElapsedProduction,
+  axisRedoublementThreshold,
   cadenceCost,
   computeMultipliers,
   createInitialState,
@@ -10,7 +11,9 @@ import {
   grandMenageCost,
   isCouche2Unlocked,
   maxAffordable,
+  maxAffordableCadenceLevels,
   performBuyCadence,
+  performBuyCadenceMax,
   performGrandMenage,
   performRedemarrage,
   productionPerSecond,
@@ -144,6 +147,10 @@ export function useGameEngine() {
     setState((prev) => performBuyCadence(prev))
   }, [])
 
+  const buyCadenceMax = useCallback(() => {
+    setState((prev) => performBuyCadenceMax(prev))
+  }, [])
+
   /**
    * Resets in-memory state directly instead of clearing storage + reloading the page: a reload
    * fires `beforeunload`, which the autosave effect below listens for to save on the way out —
@@ -156,28 +163,45 @@ export function useGameEngine() {
     setState(createInitialState())
   }, [])
 
+  /** Per-axis: what redoubling into that axis right now would cost (threshold) and yield (gain). */
+  const axisRedoublementInfo = useMemo(() => {
+    const info = {} as Record<AxisId, { threshold: number; gain: number }>
+    for (const def of AXES) {
+      const threshold = axisRedoublementThreshold(state.redoublements, state.axisFloors[def.id])
+      info[def.id] = { threshold, gain: redoublementMultiplierGain(state.earnedSinceReset, threshold) }
+    }
+    return info
+  }, [state.redoublements, state.axisFloors, state.earnedSinceReset])
+
+  // Best gain across axes — used as a general "is redoubling worth anything at all right now"
+  // signal (e.g. to show/hide the axis-choice list), not as the gain any specific axis gets.
   const previewMultiplierGain = useMemo(
-    () => redoublementMultiplierGain(state.earnedSinceReset, state.redoublements),
-    [state.earnedSinceReset, state.redoublements],
+    () => Math.max(0, ...AXES.map((def) => axisRedoublementInfo[def.id].gain)),
+    [axisRedoublementInfo],
   )
 
   /** Redoubles and applies this redoublement's multiplier gain to the chosen axis. */
-  const redoubler = useCallback((axisId: AxisId) => {
-    setState((prev) => {
-      const gain = redoublementMultiplierGain(prev.earnedSinceReset, prev.redoublements)
-      if (gain <= 0) return prev
-      const fresh = createInitialState()
-      return {
-        ...fresh,
-        bestCycleEarned: prev.bestCycleEarned,
-        axisMultipliers: {
-          ...prev.axisMultipliers,
-          [axisId]: applyAxisGain(prev.axisMultipliers[axisId], gain),
-        },
-        redoublements: prev.redoublements + 1,
-      }
-    })
-  }, [])
+  const redoubler = useCallback(
+    (axisId: AxisId) => {
+      setState((prev) => {
+        const threshold = axisRedoublementThreshold(prev.redoublements, prev.axisFloors[axisId])
+        const gain = redoublementMultiplierGain(prev.earnedSinceReset, threshold)
+        if (gain <= 0) return prev
+        const fresh = createInitialState()
+        return {
+          ...fresh,
+          bestCycleEarned: prev.bestCycleEarned,
+          axisMultipliers: {
+            ...prev.axisMultipliers,
+            [axisId]: applyAxisGain(prev.axisMultipliers[axisId], gain),
+          },
+          axisFloors: { ...prev.axisFloors, [axisId]: prev.earnedSinceReset },
+          redoublements: prev.redoublements + 1,
+        }
+      })
+    },
+    [],
+  )
 
   const currentThreshold = useMemo(
     () => redoublementThreshold(state.redoublements),
@@ -189,12 +213,17 @@ export function useGameEngine() {
   const redemarrageCostNow = redemarrageCost(state.redemarrages)
   const grandMenageCostNow = grandMenageCost(state.grandsMenages)
   const cadenceCostNow = cadenceCost(state.cadenceLevel, state.grandsMenages)
+  const cadenceMaxAffordable = useMemo(
+    () => maxAffordableCadenceLevels(state.cadenceLevel, state.grandsMenages, state.puanteur),
+    [state.cadenceLevel, state.grandsMenages, state.puanteur],
+  )
 
   return {
     state,
     multipliers: mult,
     productionRate: rate,
     previewMultiplierGain,
+    axisRedoublementInfo,
     currentThreshold,
     couche2Unlocked,
     couche2Threshold: COUCHE_2_UNLOCK_THRESHOLD,
@@ -202,9 +231,11 @@ export function useGameEngine() {
     buyRedemarrage,
     buyGrandMenage,
     buyCadence,
+    buyCadenceMax,
     redemarrageCostNow,
     grandMenageCostNow,
     cadenceCostNow,
+    cadenceMaxAffordable,
     redoubler,
     resetGame,
     offlineReport,

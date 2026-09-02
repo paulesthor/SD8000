@@ -40,6 +40,7 @@ export function createInitialState(): GameState {
     grandsMenages: 0,
     cadenceLevel: 0,
     axisMultipliers: Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>,
+    axisFloors: Object.fromEntries(AXES.map((a) => [a.id, 0])) as Record<AxisId, number>,
     redoublements: 0,
     lastTickAt: now,
     createdAt: now,
@@ -216,6 +217,33 @@ export function performBuyCadence(state: GameState): GameState {
   return { ...state, puanteur: state.puanteur - cost, cadenceLevel: state.cadenceLevel + 1 }
 }
 
+/** How many Cadence levels `budget` puanteur can afford right now, and their total cost. */
+export function maxAffordableCadenceLevels(
+  cadenceLevel: number,
+  grandsMenages: number,
+  budget: number,
+): { levels: number; cost: number } {
+  let levels = 0
+  let cost = 0
+  let level = cadenceLevel
+  while (true) {
+    const next = cadenceCost(level, grandsMenages)
+    if (cost + next > budget) break
+    cost += next
+    levels += 1
+    level += 1
+    if (levels > 100000) break
+  }
+  return { levels, cost }
+}
+
+/** Cadence MAX: buys every level currently affordable in one go. */
+export function performBuyCadenceMax(state: GameState): GameState {
+  const { levels, cost } = maxAffordableCadenceLevels(state.cadenceLevel, state.grandsMenages, state.puanteur)
+  if (levels === 0) return state
+  return { ...state, puanteur: state.puanteur - cost, cadenceLevel: state.cadenceLevel + levels }
+}
+
 /** Per-step growth rate of the threshold, decaying from a high early rate toward a low one. */
 function thresholdStepGrowth(redoublements: number): number {
   return (
@@ -235,22 +263,37 @@ export function redoublementThreshold(redoublements: number): number {
 }
 
 /**
- * Multiplier gained by redoubling now, given puanteur earned this cycle and how many
- * redoublements are already banked — RI's P.Mult idea: no currency, the redoublement itself is
- * the reward, applied directly to one axis. Same family as Antimatter Dimensions' own Infinity
- * Points formula (IP = 10^(log10(antimatter)/308 - 0.75), i.e. antimatter^(1/308) scaled down —
- * a fractional power / log-shaped curve with no hard ceiling): here, gain = LOG_SCALE *
- * ln(earnedSinceReset / threshold). Two things keep this from spiraling or being spammable:
- * - The threshold rising with `redoublements`: earning the same *relative* amount always takes
- *   proportionally more effort than the last redoublement, however strong you've become.
+ * The puanteur an axis-specific redoublement must clear — the normal redoublement threshold,
+ * OR that axis's own floor, whichever is higher. The floor is the earnedSinceReset the last
+ * time *this* axis was chosen (0 if never): without it, a player could pick the same axis every
+ * single redoublement and keep compounding it at whatever the (comparatively tiny) global
+ * threshold happens to be, while every other axis sat untouched behind that same cheap gate —
+ * re-investing in an axis you've already grown should cost at least as much as it did last time,
+ * not the same trivial amount as touching a fresh one.
+ */
+export function axisRedoublementThreshold(redoublements: number, axisFloor: number): number {
+  return Math.max(redoublementThreshold(redoublements), axisFloor)
+}
+
+/**
+ * Multiplier gained by redoubling into a given axis right now, given puanteur earned this cycle
+ * and that axis's effective threshold (see axisRedoublementThreshold) — RI's P.Mult idea: no
+ * currency, the redoublement itself is the reward, applied directly to one axis. Same family as
+ * Antimatter Dimensions' own Infinity Points formula (IP = 10^(log10(antimatter)/308 - 0.75),
+ * i.e. antimatter^(1/308) scaled down — a fractional power / log-shaped curve with no hard
+ * ceiling): here, gain = LOG_SCALE * ln(earnedSinceReset / threshold). Two things keep this from
+ * spiraling or being spammable:
+ * - The threshold rising with `redoublements`, and with that axis's own floor: earning the same
+ *   *relative* amount always takes proportionally more effort than last time, however strong
+ *   you've become, and re-growing an axis you've already invested in specifically can't be
+ *   cheaper than it was the last time you grew it.
  * - ln(1) = 0: gain is exactly 0 right at the threshold and only grows with accumulation
  *   *beyond* it, so redoubling the instant it unlocks is worthless. But unlike a hard cap, it
  *   never fully stalls either — every further multiple of accumulation keeps adding a bit more
  *   (doubling the surplus always adds ln(2) ≈ 0.69 × LOG_SCALE, however much you've already
  *   accumulated), so waiting longer always keeps paying off, just less and less per extra wait.
  */
-export function redoublementMultiplierGain(earnedSinceReset: number, redoublements: number): number {
-  const threshold = redoublementThreshold(redoublements)
+export function redoublementMultiplierGain(earnedSinceReset: number, threshold: number): number {
   if (earnedSinceReset <= threshold) return 0
   return REDOUBLEMENT_LOG_SCALE * Math.log(earnedSinceReset / threshold)
 }

@@ -89,9 +89,17 @@ export const GRAND_MENAGE_CADENCE_DISCOUNT = 0.35
  * Cadence (AD's tickspeed): bought directly with puanteur, survives Redémarrage/Grand ménage
  * (only wiped by redoublement itself, like AD's tickspeed upgrades survive galaxies). Each level
  * is a flat permanent production multiplier — the "the game runs faster" lever.
+ *
+ * COST_GROWTH bumped 1.35 -> 6: retour utilisateur — la cadence coûtait bien trop peu pour ce
+ * qu'elle rapportait et se spammait en quelques secondes avec le surplus de puanteur qui
+ * n'avait de toute façon nulle part où aller. Vérifié avec le vrai moteur : avec 1.35, acheter
+ * tout le surplus disponible à chaque tick atteignait le niveau 20 (x6 de production) en 60s et
+ * le niveau 68 (x18) en 10 minutes — un bonus quasiment gratuit. Avec 6, le niveau 3 (x1.75) à
+ * 60s et le niveau 10 (x3.5) à 10 minutes — un vrai choix coût/bénéfice à chaque achat plutôt
+ * qu'un réflexe automatique.
  */
 export const CADENCE_BASE_COST = 50
-export const CADENCE_COST_GROWTH = 1.35
+export const CADENCE_COST_GROWTH = 6
 export const CADENCE_EFFECT_PER_LEVEL = 0.25
 
 // RI-style redoublement: no currency, no shop. Redoubling grants a multiplier — computed from
@@ -168,15 +176,17 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  *
  * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
  * Infinity, via *optimized* play, not casual play). Re-simulated with the full AD-style stack
- * (dimension tier doubling, Redémarrage cascade, Grand ménage, Cadence) via the real engine,
- * and again after REDOUBLEMENT_BASE_THRESHOLD was raised (see its own comment — the first
- * redoublement was reachable in 14s, far too fast): a near-optimal strategy (buy max every
- * generator, redémarrer/faire le ménage/monter la cadence as soon as affordable, redoubler once
- * comfortably past threshold) reaches ~7e15 bestCycleEarned at ~80 minutes. Casual play
- * (patient x3, ignoring the meta mechanics entirely) is still at ~2.3e12 by that same mark —
- * hours behind — so the benchmark still assumes good play, same as RI's own guide.
+ * (dimension tier doubling, Redémarrage cascade, Grand ménage, Cadence) via the real engine —
+ * and again each time a balance pass changed how much power the stack produces (see
+ * REDOUBLEMENT_BASE_THRESHOLD's comment for the first pass, CADENCE_COST_GROWTH's for the most
+ * recent one, which nerfed Cadence from an essentially-free spam to a real cost/benefit choice
+ * and knocked total power down accordingly): a near-optimal strategy (buy max every generator,
+ * redémarrer/faire le ménage/monter la cadence as soon as affordable, redoubler once comfortably
+ * past threshold) reaches ~1.4e14 bestCycleEarned at ~80 minutes. Casual play (patient x3,
+ * ignoring the meta mechanics entirely) is still at ~2.3e12 by that same mark — hours behind —
+ * so the benchmark still assumes good play, same as RI's own guide.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 7e15
+export const COUCHE_2_UNLOCK_THRESHOLD = 1.4e14
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600

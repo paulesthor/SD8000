@@ -7,6 +7,9 @@ function migrate(parsed: GameState): GameState {
   if (!parsed.axisMultipliers) {
     parsed.axisMultipliers = Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>
   }
+  if (!parsed.axisFloors) {
+    parsed.axisFloors = Object.fromEntries(AXES.map((a) => [a.id, 0])) as Record<AxisId, number>
+  }
   if (typeof parsed.bestCycleEarned !== 'number') {
     // lifetimeEarned was this field's previous name/shape (a lifetime sum, replaced because it
     // didn't match how RI's own Infinity gate works) — fall back sensibly either way.

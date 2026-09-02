@@ -1,5 +1,5 @@
 import { LAST_GENERATOR_ID } from '../game/engine'
-import { GENERATORS } from '../game/constants'
+import { CADENCE_EFFECT_PER_LEVEL, GENERATORS } from '../game/constants'
 import { formatMultiplier, formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 import { Monogram } from './icons'
@@ -11,6 +11,8 @@ export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngin
   const canRedemarrer = caveOwned >= engine.redemarrageCostNow
   const canMenage = caveOwned >= engine.grandMenageCostNow
   const canCadence = engine.state.puanteur >= engine.cadenceCostNow
+  const cadenceMaxLevels = engine.cadenceMaxAffordable.levels
+  const cadenceMaxMult = 1 + (engine.state.cadenceLevel + cadenceMaxLevels) * CADENCE_EFFECT_PER_LEVEL
 
   return (
     <div className="boosts-panel">
@@ -79,17 +81,24 @@ export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngin
         </div>
         <div className="boost-stat">
           <span>Niveau actuel</span>
-          <strong>
-            {engine.state.cadenceLevel} (x{formatMultiplier(engine.multipliers.cadenceMult)} prod.)
-          </strong>
+          <strong>{engine.state.cadenceLevel}</strong>
+        </div>
+        <div className="boost-stat">
+          <span>Bonus de production global</span>
+          <strong>x{formatMultiplier(engine.multipliers.cadenceMult)}</strong>
         </div>
         <div className="boost-stat">
           <span>Coût du prochain niveau</span>
           <strong>{formatNumber(engine.cadenceCostNow)} puanteur</strong>
         </div>
-        <button className="boost-button" disabled={!canCadence} onClick={engine.buyCadence}>
-          Augmenter la cadence
-        </button>
+        <div className="boost-buttons-row">
+          <button className="boost-button" disabled={!canCadence} onClick={engine.buyCadence}>
+            +1 niveau
+          </button>
+          <button className="boost-button" disabled={cadenceMaxLevels === 0} onClick={engine.buyCadenceMax}>
+            MAX{cadenceMaxLevels > 0 ? ` (+${cadenceMaxLevels} → x${formatMultiplier(cadenceMaxMult)})` : ''}
+          </button>
+        </div>
       </section>
     </div>
   )
