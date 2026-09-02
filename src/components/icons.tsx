@@ -19,19 +19,6 @@ export function GeneratorsIcon() {
   )
 }
 
-export function AxesIcon() {
-  return (
-    <svg {...common}>
-      <circle cx="12" cy="4" r="1.6" fill="currentColor" stroke="none" />
-      <path d="M12 5.5v5" />
-      <path d="M12 10.5 6 17" />
-      <path d="M12 10.5 18 17" />
-      <circle cx="6" cy="19" r="1.6" fill="currentColor" stroke="none" />
-      <circle cx="18" cy="19" r="1.6" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
 export function BoostsIcon() {
   return (
     <svg {...common}>

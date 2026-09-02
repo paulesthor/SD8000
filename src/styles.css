@@ -36,11 +36,22 @@ button {
 }
 
 .app {
+  /*
+   * Pinned with position:fixed + top/bottom:0 instead of height:100dvh — iOS Safari in
+   * standalone (home-screen) mode is known to miscalculate dvh against the real visual
+   * viewport, leaving a blank gap between the bottom nav and the actual screen edge (below the
+   * home-indicator safe area). Fixed positioning anchors directly to the visual viewport instead
+   * of trusting a height calculation, which sidesteps the bug entirely.
+   */
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 560px;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  max-width: 560px;
-  margin: 0 auto;
 }
 
 .header {
