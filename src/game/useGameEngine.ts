@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, TICK_MS } from './constants'
+import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, ITEM_ASCENSION_CAP, TICK_MS } from './constants'
 import {
   applyAxisGain,
   applyElapsedProduction,
@@ -12,12 +12,11 @@ import {
   isCouche2Unlocked,
   maxAffordable,
   maxAffordableCadenceLevels,
+  performAscendItem,
   performBuyCadence,
   performBuyCadenceMax,
   performGrandMenage,
-  performRedemarrage,
   productionPerSecond,
-  redemarrageCost,
   redoublementMultiplierGain,
   redoublementThreshold,
 } from './engine'
@@ -83,7 +82,7 @@ export function useGameEngine() {
     const id = setInterval(() => {
       setState((prev) => {
         const mult = computeMultipliers(prev.axisMultipliers, prev.cadenceLevel, Math.random())
-        const rate = productionPerSecond(prev.owned, prev.redemarrages, mult)
+        const rate = productionPerSecond(prev.owned, prev.ascensionLevels, mult)
         const gained = rate * (TICK_MS / 1000)
         const earnedSinceReset = prev.earnedSinceReset + gained
         return {
@@ -116,27 +115,29 @@ export function useGameEngine() {
     [state.axisMultipliers, state.cadenceLevel],
   )
   const rate = useMemo(
-    () => productionPerSecond(state.owned, state.redemarrages, mult),
-    [state.owned, state.redemarrages, mult],
+    () => productionPerSecond(state.owned, state.ascensionLevels, mult),
+    [state.owned, state.ascensionLevels, mult],
   )
 
-  const buyGenerator = useCallback((id: GeneratorId, mode: 1 | 10 | 'max') => {
+  const buyGenerator = useCallback((id: GeneratorId, mode: 1 | 'max') => {
     setState((prev) => {
       const owned = prev.owned[id]
+      const ascLevel = prev.ascensionLevels[id]
       const costMult = computeMultipliers(prev.axisMultipliers, prev.cadenceLevel).costMult
       if (mode === 'max') {
-        const { qty, cost } = maxAffordable(id, owned, prev.puanteur, costMult)
+        const { qty, cost } = maxAffordable(id, owned, prev.puanteur, costMult, ascLevel)
         if (qty === 0) return prev
         return { ...prev, puanteur: prev.puanteur - cost, owned: { ...prev.owned, [id]: owned + qty } }
       }
-      const cost = generatorCost(id, owned, mode, costMult)
+      if (owned >= ITEM_ASCENSION_CAP) return prev
+      const cost = generatorCost(id, owned, mode, costMult, ascLevel)
       if (cost > prev.puanteur) return prev
       return { ...prev, puanteur: prev.puanteur - cost, owned: { ...prev.owned, [id]: owned + mode } }
     })
   }, [])
 
-  const buyRedemarrage = useCallback(() => {
-    setState((prev) => performRedemarrage(prev))
+  const ascendItem = useCallback((id: GeneratorId) => {
+    setState((prev) => performAscendItem(prev, id))
   }, [])
 
   const buyGrandMenage = useCallback(() => {
@@ -210,7 +211,6 @@ export function useGameEngine() {
 
   const couche2Unlocked = useMemo(() => isCouche2Unlocked(state.bestCycleEarned), [state.bestCycleEarned])
 
-  const redemarrageCostNow = redemarrageCost(state.redemarrages)
   const grandMenageCostNow = grandMenageCost(state.grandsMenages)
   const cadenceCostNow = cadenceCost(state.cadenceLevel, state.grandsMenages)
   const cadenceMaxAffordable = useMemo(
@@ -228,11 +228,10 @@ export function useGameEngine() {
     couche2Unlocked,
     couche2Threshold: COUCHE_2_UNLOCK_THRESHOLD,
     buyGenerator,
-    buyRedemarrage,
+    ascendItem,
     buyGrandMenage,
     buyCadence,
     buyCadenceMax,
-    redemarrageCostNow,
     grandMenageCostNow,
     cadenceCostNow,
     cadenceMaxAffordable,

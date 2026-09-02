@@ -1,9 +1,12 @@
+import { canAscendItem } from '../game/engine'
+import { GENERATORS } from '../game/constants'
 import { formatMultiplier, formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
 
 /** Slim glance strip on the Générateurs tab — the state you'd otherwise have to switch tabs to check. */
 export function QuickStats({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const redoublementProgress = Math.min(100, (engine.state.earnedSinceReset / engine.currentThreshold) * 100)
+  const readyToAscend = GENERATORS.filter((def) => canAscendItem(engine.state.owned[def.id])).length
 
   return (
     <div className="quick-stats">
@@ -18,8 +21,8 @@ export function QuickStats({ engine }: { engine: ReturnType<typeof useGameEngine
         </b>
       </div>
       <div className="qs-item">
-        <span>Redémarrage</span>
-        <b>{formatNumber(engine.redemarrageCostNow)} Cave</b>
+        <span>Items prêts à redémarrer</span>
+        <b>{readyToAscend}/8</b>
       </div>
       <div className="qs-item">
         <span>Grand ménage</span>

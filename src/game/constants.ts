@@ -51,8 +51,10 @@ export const AXES: AxisDef[] = [
 export const TIER_BOOST_COEFF = 0.02
 
 // AD-style dimension/boost/galaxy stack, reskinned. Nested inside a single redoublement cycle:
-// Items -> Redémarrage -> Grand ménage -> Redoublement, each level resetting the one(s) below it
-// but leaving a permanent-for-the-cycle bonus behind, same shape as AD's
+// Items (each with its own per-item ascension) -> Grand ménage -> Redoublement, each level
+// resetting the one(s) below it but leaving a permanent-for-the-cycle bonus behind — the item
+// ascension replaces what was originally a global, AD-Dimension-Boost-style Redémarrage; the
+// overall shape (Items -> boost -> galaxy -> Infinity) still mirrors AD's own
 // Dimensions -> Dimension Boost -> Antimatter Galaxy -> Infinity.
 //
 // We reuse AD's real formulas' *shape* (stepped x2 production per 10 owned, cost that itself
@@ -67,18 +69,27 @@ export const DIMENSION_TIER_SIZE = 10
 export const DIMENSION_TIER_MULT = 2
 
 /**
- * Redémarrage (AD's Dimension Boost): costs units of the last item (Cave), resets items 1-7
- * (everything but Cave) to 0, and grants a cascading multiplier — item 1 gets
- * DIMENSION_TIER_MULT^redemarrages, item 2 gets one power less, down to a floor of x1 — exactly
- * AD's "x2 to dimension 1, halved each dimension after, min x1" boost effect.
+ * Per-item ascension (replaces the old global Redémarrage/Dimension Boost — retour utilisateur :
+ * un bouton par ligne d'item plutôt qu'un mécanisme global, chaque item plafonné à un niveau
+ * fixe). Once an item reaches ITEM_ASCENSION_CAP owned, a "Redémarrer" button on its row resets
+ * that item's owned count to 0 and grants a permanent per-item production multiplier
+ * (ITEM_ASCENSION_BOOST^level) — independent of every other item, no cascade between them.
+ *
+ * Without some cost counterweight, this would runaway: owned resets to 0 each time but the
+ * boost stacks forever, while the raw per-unit cost curve doesn't otherwise care about ascension
+ * level, so buying back up to the cap would get relatively cheaper forever relative to
+ * production. ITEM_ASCENSION_COST_PENALTY counters that by making the item's cost grow a bit
+ * faster per ascension level, the same guard the old per-item ascension system (before the AD
+ * dimension-tier rework) used.
  */
-export const REDEMARRAGE_BASE_COST = 20
-export const REDEMARRAGE_COST_STEP = 15
+export const ITEM_ASCENSION_CAP = 100
+export const ITEM_ASCENSION_BOOST = 2
+export const ITEM_ASCENSION_COST_PENALTY = 0.05
 
 /**
- * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item AND redemarrages
- * to 0, but makes Cadence purchases cheaper for the rest of this cycle (AD: galaxies cheapen
- * tickspeed). The bigger, rarer reset in the stack.
+ * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item AND every item's
+ * ascension level to 0, but makes Cadence purchases cheaper for the rest of this cycle (AD:
+ * galaxies cheapen tickspeed). The bigger, rarer reset in the stack.
  */
 export const GRAND_MENAGE_BASE_COST = 80
 export const GRAND_MENAGE_COST_STEP = 60
@@ -86,8 +97,8 @@ export const GRAND_MENAGE_COST_STEP = 60
 export const GRAND_MENAGE_CADENCE_DISCOUNT = 0.35
 
 /**
- * Cadence (AD's tickspeed): bought directly with puanteur, survives Redémarrage/Grand ménage
- * (only wiped by redoublement itself, like AD's tickspeed upgrades survive galaxies). Each level
+ * Cadence (AD's tickspeed): bought directly with puanteur, survives per-item Redémarrage/Grand
+ * ménage (only wiped by redoublement itself, like AD's tickspeed upgrades survive galaxies). Each level
  * is a flat permanent production multiplier — the "the game runs faster" lever.
  *
  * COST_GROWTH bumped 1.35 -> 6: retour utilisateur — la cadence coûtait bien trop peu pour ce

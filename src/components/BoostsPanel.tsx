@@ -8,7 +8,6 @@ const LAST_GENERATOR_NAME = GENERATORS.find((g) => g.id === LAST_GENERATOR_ID)!.
 
 export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const caveOwned = engine.state.owned[LAST_GENERATOR_ID]
-  const canRedemarrer = caveOwned >= engine.redemarrageCostNow
   const canMenage = caveOwned >= engine.grandMenageCostNow
   const canCadence = engine.state.puanteur >= engine.cadenceCostNow
   const cadenceMaxLevels = engine.cadenceMaxAffordable.levels
@@ -16,31 +15,11 @@ export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngin
 
   return (
     <div className="boosts-panel">
-      <section className="boost-card">
-        <div className="boost-header">
-          <Monogram label="Redémarrage" />
-          <div>
-            <div className="boost-name">Redémarrage</div>
-            <div className="boost-desc">
-              Vide tous les items sauf {LAST_GENERATOR_NAME}, en échange d'un gros bonus sur les
-              premiers items qui s'estompe sur les suivants.
-            </div>
-          </div>
-        </div>
-        <div className="boost-stat">
-          <span>Coût</span>
-          <strong>
-            {formatNumber(engine.redemarrageCostNow)} {LAST_GENERATOR_NAME} ({formatNumber(caveOwned)} possédés)
-          </strong>
-        </div>
-        <div className="boost-stat">
-          <span>Redémarrages effectués</span>
-          <strong>{engine.state.redemarrages}</strong>
-        </div>
-        <button className="boost-button" disabled={!canRedemarrer} onClick={engine.buyRedemarrage}>
-          Redémarrer
-        </button>
-      </section>
+      <p className="hint">
+        Chaque item a son propre bouton « Redémarrer » sur sa ligne, dans l'onglet Générateurs :
+        une fois 100 possédés, le redémarrer le remet à 0 en échange d'un bonus de production
+        permanent pour cet item précis.
+      </p>
 
       <section className="boost-card">
         <div className="boost-header">
@@ -48,8 +27,8 @@ export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngin
           <div>
             <div className="boost-name">Grand ménage</div>
             <div className="boost-desc">
-              Reset complet (items + redémarrages), mais rend la Cadence moins chère pour le reste
-              du cycle.
+              Reset complet (tous les items et leurs ascensions), mais rend la Cadence moins chère
+              pour le reste du cycle.
             </div>
           </div>
         </div>
@@ -75,7 +54,7 @@ export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngin
             <div className="boost-name">Cadence</div>
             <div className="boost-desc">
               Bonus de production permanent pour le cycle, acheté directement en puanteur. Survit
-              aux redémarrages et grands ménages.
+              aux redémarrages d'item et aux grands ménages.
             </div>
           </div>
         </div>

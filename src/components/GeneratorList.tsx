@@ -1,10 +1,11 @@
-import { GENERATORS } from '../game/constants'
+import { GENERATORS, ITEM_ASCENSION_CAP } from '../game/constants'
 import {
+  canAscendItem,
   dimensionTierMultiplier,
   generatorCost,
   generatorProductionPerSecond,
+  itemAscensionMultiplier,
   maxAffordable,
-  redemarrageCascadeMultiplier,
   tierBoostMultiplier,
 } from '../game/engine'
 import { formatMultiplier, formatNumber, formatRate } from '../game/format'
@@ -18,16 +19,18 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
     <ul className="generator-list">
       {GENERATORS.map((def, index) => {
         const owned = engine.state.owned[def.id]
+        const ascLevel = engine.state.ascensionLevels[def.id]
 
-        const cost1 = generatorCost(def.id, owned, 1, costMult)
-        const cost10 = generatorCost(def.id, owned, 10, costMult)
-        const { qty: maxQty, cost: maxCost } = maxAffordable(def.id, owned, engine.state.puanteur, costMult)
-        const rate = generatorProductionPerSecond(index, engine.state.owned, engine.state.redemarrages, engine.multipliers)
+        const cost1 = generatorCost(def.id, owned, 1, costMult, ascLevel)
+        const { qty: maxQty, cost: maxCost } = maxAffordable(def.id, owned, engine.state.puanteur, costMult, ascLevel)
+        const rate = generatorProductionPerSecond(index, engine.state.owned, engine.state.ascensionLevels, engine.multipliers)
 
         const above = GENERATORS[index + 1]
         const tierBoost = above ? tierBoostMultiplier(engine.state.owned[above.id]) : null
         const dimMult = dimensionTierMultiplier(owned)
-        const cascadeMult = redemarrageCascadeMultiplier(index, engine.state.redemarrages)
+        const ascMult = itemAscensionMultiplier(ascLevel)
+        const canAscend = canAscendItem(owned)
+        const nextAscMult = itemAscensionMultiplier(ascLevel + 1)
 
         return (
           <li key={def.id} className="generator-card">
@@ -43,9 +46,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                   {tierBoost && tierBoost > 1 && (
                     <span className="tier-boost"> · boosté x{formatMultiplier(tierBoost)} par {above!.name}</span>
                   )}
-                  {cascadeMult > 1 && (
-                    <span className="tier-boost"> · x{formatMultiplier(cascadeMult)} redémarrage</span>
-                  )}
+                  {ascMult > 1 && <span className="tier-boost"> · x{formatMultiplier(ascMult)} ascension</span>}
                 </div>
               </div>
             </div>
@@ -56,11 +57,13 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
               >
                 +1<span className="cost">{formatNumber(cost1)}</span>
               </button>
-              <button
-                disabled={cost10 > engine.state.puanteur}
-                onClick={() => engine.buyGenerator(def.id, 10)}
-              >
-                +10<span className="cost">{formatNumber(cost10)}</span>
+              <button disabled={!canAscend} onClick={() => engine.ascendItem(def.id)}>
+                Redémarrer
+                <span className="cost">
+                  {canAscend
+                    ? `→ x${formatMultiplier(nextAscMult)}`
+                    : `${formatNumber(owned)}/${ITEM_ASCENSION_CAP}`}
+                </span>
               </button>
               <button disabled={maxQty === 0} onClick={() => engine.buyGenerator(def.id, 'max')}>
                 MAX{maxQty > 0 ? ` (${maxQty})` : ''}

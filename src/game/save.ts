@@ -1,6 +1,6 @@
-import { AXES, MAX_OFFLINE_SECONDS, SAVE_KEY } from './constants'
+import { AXES, GENERATORS, MAX_OFFLINE_SECONDS, SAVE_KEY } from './constants'
 import { createInitialState } from './engine'
-import type { AxisId, GameState } from './types'
+import type { AxisId, GameState, GeneratorId } from './types'
 
 /** Fills in fields added after a save was written, so older saves don't crash on load. */
 function migrate(parsed: GameState): GameState {
@@ -16,7 +16,14 @@ function migrate(parsed: GameState): GameState {
     const legacy = (parsed as unknown as { lifetimeEarned?: number }).lifetimeEarned
     parsed.bestCycleEarned = legacy ?? parsed.earnedSinceReset ?? 0
   }
-  if (typeof parsed.redemarrages !== 'number') parsed.redemarrages = 0
+  // ascensionLevels replaces the old global `redemarrages` counter (per-item ascension instead
+  // of a global Dimension-Boost-style reset) — a save with the old field just drops it silently.
+  if (!parsed.ascensionLevels) {
+    parsed.ascensionLevels = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<
+      GeneratorId,
+      number
+    >
+  }
   if (typeof parsed.grandsMenages !== 'number') parsed.grandsMenages = 0
   if (typeof parsed.cadenceLevel !== 'number') parsed.cadenceLevel = 0
   return parsed

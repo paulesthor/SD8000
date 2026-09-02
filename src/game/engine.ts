@@ -12,8 +12,9 @@ import {
   GRAND_MENAGE_BASE_COST,
   GRAND_MENAGE_CADENCE_DISCOUNT,
   GRAND_MENAGE_COST_STEP,
-  REDEMARRAGE_BASE_COST,
-  REDEMARRAGE_COST_STEP,
+  ITEM_ASCENSION_BOOST,
+  ITEM_ASCENSION_CAP,
+  ITEM_ASCENSION_COST_PENALTY,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
@@ -36,7 +37,7 @@ export function createInitialState(): GameState {
     earnedSinceReset: 0,
     bestCycleEarned: 0,
     owned,
-    redemarrages: 0,
+    ascensionLevels: Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>,
     grandsMenages: 0,
     cadenceLevel: 0,
     axisMultipliers: Object.fromEntries(AXES.map((a) => [a.id, 1])) as Record<AxisId, number>,
@@ -52,23 +53,26 @@ export function dimensionTierMultiplier(owned: number): number {
   return Math.pow(DIMENSION_TIER_MULT, Math.floor(owned / DIMENSION_TIER_SIZE))
 }
 
-/**
- * Redémarrage's cascading multiplier (AD's Dimension Boost effect): item 1 gets
- * DIMENSION_TIER_MULT^redemarrages, each item after gets one power less, floored at x1.
- */
-export function redemarrageCascadeMultiplier(index: number, redemarrages: number): number {
-  const power = Math.max(0, redemarrages - index)
-  return Math.pow(DIMENSION_TIER_MULT, power)
+/** Permanent per-item production multiplier from that item's own ascension level. */
+export function itemAscensionMultiplier(level: number): number {
+  return Math.pow(ITEM_ASCENSION_BOOST, level)
 }
 
 /** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
-export function generatorCost(genId: GeneratorId, owned: number, qty: number, costMult: number): number {
+export function generatorCost(
+  genId: GeneratorId,
+  owned: number,
+  qty: number,
+  costMult: number,
+  ascLevel = 0,
+): number {
   const def = GENERATORS.find((g) => g.id === genId)!
+  const costGrowth = def.costGrowth * (1 + ITEM_ASCENSION_COST_PENALTY * ascLevel)
   let total = 0
   for (let i = 0; i < qty; i++) {
     const n = owned + i
     const decade = Math.floor(n / DIMENSION_TIER_SIZE)
-    total += def.baseCost * Math.pow(def.costGrowth, n) * Math.pow(def.scaling, decade)
+    total += def.baseCost * Math.pow(costGrowth, n) * Math.pow(def.scaling, decade)
   }
   return total * costMult
 }
@@ -79,17 +83,19 @@ export function maxAffordable(
   owned: number,
   budget: number,
   costMult: number,
+  ascLevel = 0,
 ): { qty: number; cost: number } {
   let qty = 0
   let cost = 0
+  const room = Math.max(0, ITEM_ASCENSION_CAP - owned)
   // Small owned counts in a prototype: linear probe is fine and keeps the math obviously correct.
-  while (true) {
+  while (qty < room) {
     const next =
-      generatorCost(genId, owned, qty + 1, costMult) - (qty > 0 ? generatorCost(genId, owned, qty, costMult) : 0)
+      generatorCost(genId, owned, qty + 1, costMult, ascLevel) -
+      (qty > 0 ? generatorCost(genId, owned, qty, costMult, ascLevel) : 0)
     if (cost + next > budget) break
     cost += next
     qty += 1
-    if (qty > 100000) break
   }
   return { qty, cost }
 }
@@ -146,36 +152,31 @@ export function tierBoostMultiplier(ownedOfTierAbove: number): number {
   return 1 + TIER_BOOST_COEFF * ownedOfTierAbove
 }
 
-/** Puanteur/sec produced by a single generator tier right now, tier-boost and redémarrage included. */
+/** Puanteur/sec produced by a single generator tier right now, tier-boost and ascension included. */
 export function generatorProductionPerSecond(
   index: number,
   owned: Record<GeneratorId, number>,
-  redemarrages: number,
+  ascensionLevels: Record<GeneratorId, number>,
   mult: Multipliers,
 ): number {
   const def = GENERATORS[index]
   const above = GENERATORS[index + 1]
   const dimMult = dimensionTierMultiplier(owned[def.id])
-  const cascadeMult = redemarrageCascadeMultiplier(index, redemarrages)
+  const ascMult = itemAscensionMultiplier(ascensionLevels[def.id])
   const tierBoost = above ? tierBoostMultiplier(owned[above.id]) : 1
-  return def.baseProduction * owned[def.id] * dimMult * cascadeMult * tierBoost * mult.totalProductionMult
+  return def.baseProduction * owned[def.id] * dimMult * ascMult * tierBoost * mult.totalProductionMult
 }
 
 export function productionPerSecond(
   owned: Record<GeneratorId, number>,
-  redemarrages: number,
+  ascensionLevels: Record<GeneratorId, number>,
   mult: Multipliers,
 ): number {
   let total = 0
   for (let i = 0; i < GENERATORS.length; i++) {
-    total += generatorProductionPerSecond(i, owned, redemarrages, mult)
+    total += generatorProductionPerSecond(i, owned, ascensionLevels, mult)
   }
   return total
-}
-
-/** Puanteur (in units of the last item) needed for the next Redémarrage. */
-export function redemarrageCost(redemarrages: number): number {
-  return REDEMARRAGE_BASE_COST + REDEMARRAGE_COST_STEP * redemarrages
 }
 
 /** Puanteur (in units of the last item) needed for the next Grand ménage. */
@@ -189,25 +190,28 @@ export function cadenceCost(cadenceLevel: number, grandsMenages: number): number
   return (CADENCE_BASE_COST * Math.pow(CADENCE_COST_GROWTH, cadenceLevel)) / discount
 }
 
-/** Redémarrage: pays Cave units, resets every item except Cave, cascading boost kicks in. */
-export function performRedemarrage(state: GameState): GameState {
-  const cost = redemarrageCost(state.redemarrages)
-  if (state.owned[LAST_GENERATOR_ID] < cost) return state
-  const owned = { ...state.owned }
-  for (const def of GENERATORS) {
-    if (def.id === LAST_GENERATOR_ID) continue
-    owned[def.id] = 0
-  }
-  owned[LAST_GENERATOR_ID] -= cost
-  return { ...state, owned, redemarrages: state.redemarrages + 1 }
+/** Whether this item has reached the ascension cap and can be redémarré. */
+export function canAscendItem(owned: number): boolean {
+  return owned >= ITEM_ASCENSION_CAP
 }
 
-/** Grand ménage: pays Cave units, resets every item and redemarrages, cheapens Cadence. */
+/** Redémarrer one item: resets its owned count to 0, grants it one more permanent ascension level. */
+export function performAscendItem(state: GameState, genId: GeneratorId): GameState {
+  if (!canAscendItem(state.owned[genId])) return state
+  return {
+    ...state,
+    owned: { ...state.owned, [genId]: 0 },
+    ascensionLevels: { ...state.ascensionLevels, [genId]: state.ascensionLevels[genId] + 1 },
+  }
+}
+
+/** Grand ménage: pays Cave units, resets every item and every ascension level, cheapens Cadence. */
 export function performGrandMenage(state: GameState): GameState {
   const cost = grandMenageCost(state.grandsMenages)
   if (state.owned[LAST_GENERATOR_ID] < cost) return state
   const owned = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
-  return { ...state, owned, redemarrages: 0, grandsMenages: state.grandsMenages + 1 }
+  const ascensionLevels = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
+  return { ...state, owned, ascensionLevels, grandsMenages: state.grandsMenages + 1 }
 }
 
 /** Cadence: pays puanteur directly, permanent flat production multiplier for the rest of the cycle. */
@@ -314,7 +318,7 @@ export function isCouche2Unlocked(bestCycleEarned: number): boolean {
  */
 export function applyElapsedProduction(state: GameState, seconds: number): { state: GameState; gained: number } {
   const mult = computeMultipliers(state.axisMultipliers, state.cadenceLevel, 0.5)
-  const rate = productionPerSecond(state.owned, state.redemarrages, mult)
+  const rate = productionPerSecond(state.owned, state.ascensionLevels, mult)
   const gained = rate * seconds
   return {
     state: {

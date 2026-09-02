@@ -43,16 +43,17 @@ export interface GameState {
   bestCycleEarned: number
   owned: Record<GeneratorId, number>
   /**
-   * Redémarrages performed since the last Grand ménage (AD's Dimension Boost) — resets items 1-7
-   * and grants a cascading production multiplier, strongest on item 1, halving down the chain.
+   * Per-item ascension level — each item independently caps out at ITEM_ASCENSION_CAP owned;
+   * past that, redémarrer that one item resets its owned count to 0 in exchange for a permanent
+   * per-item production boost. Replaces the old global Redémarrage (Dimension Boost) mechanic.
    */
-  redemarrages: number
+  ascensionLevels: Record<GeneratorId, number>
   /**
    * Grands ménages performed since the last redoublement (AD's Antimatter Galaxy) — resets every
-   * item and redemarrages, but makes Cadence cheaper/stronger from then on this cycle.
+   * item and their ascension levels, but makes Cadence cheaper/stronger from then on this cycle.
    */
   grandsMenages: number
-  /** Cadence level (AD's tickspeed) — bought with puanteur, survives Redémarrage/Grand ménage. */
+  /** Cadence level (AD's tickspeed) — bought with puanteur, survives per-item Redémarrage/Grand ménage. */
   cadenceLevel: number
   /**
    * Permanent per-axis multiplier (starts at 1, no cap). Grows only when a redoublement's
