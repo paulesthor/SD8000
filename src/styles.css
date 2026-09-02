@@ -55,7 +55,7 @@ button {
 }
 
 .header {
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
 }
@@ -63,6 +63,7 @@ button {
 .header-main {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
@@ -77,10 +78,10 @@ button {
   font-size: 0.85rem;
 }
 
-.header-sub {
-  margin-top: 6px;
+.header-redoublement {
   color: var(--text-dim);
   font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 /* ---------- Quick stats (Générateurs tab glance strip) ---------- */

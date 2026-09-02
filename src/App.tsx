@@ -23,8 +23,8 @@ export default function App() {
             <div className="puanteur-value">{formatNumber(engine.state.puanteur)}</div>
             <div className="puanteur-rate">{formatRate(engine.productionRate)} de puanteur</div>
           </div>
+          <div className="header-redoublement">Redoublement #{engine.state.redoublements}</div>
         </div>
-        <div className="header-sub">Redoublement #{engine.state.redoublements}</div>
       </header>
 
       {tab === 'generateurs' && (

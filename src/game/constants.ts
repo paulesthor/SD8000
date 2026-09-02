@@ -75,16 +75,20 @@ export const DIMENSION_TIER_MULT = 2
  * that item's owned count to 0 and grants a permanent per-item production multiplier
  * (ITEM_ASCENSION_BOOST^level) — independent of every other item, no cascade between them.
  *
- * Without some cost counterweight, this would runaway: owned resets to 0 each time but the
- * boost stacks forever, while the raw per-unit cost curve doesn't otherwise care about ascension
- * level, so buying back up to the cap would get relatively cheaper forever relative to
- * production. ITEM_ASCENSION_COST_PENALTY counters that by making the item's cost grow a bit
- * faster per ascension level, the same guard the old per-item ascension system (before the AD
- * dimension-tier rework) used.
+ * Both constants were retuned after user feedback on the first pass (BOOST=2, PENALTY=0.05):
+ * the boost was barely noticeable next to the item's own owned-count/tier growth, and the cost
+ * penalty was so weak the game let you instantly rebuy ~58/100 of an item the moment it
+ * ascended — verified with the real engine (a script that ascends the instant an item hits the
+ * cap, then checks maxAffordable right after). BOOST=4 makes the ascension a real, visible power
+ * jump; PENALTY=2.5 (a much steeper per-level cost-growth increase) cut that instant rebuy to
+ * 10/100 for the same scenario — resetting an item is a real setback again, not a free lever,
+ * while the boost still makes climbing back up faster than the first time. Re-verified the RI
+ * 70-100min benchmark still holds with these values (74-90min depending on strategy), stable
+ * over 24h simulated.
  */
 export const ITEM_ASCENSION_CAP = 100
-export const ITEM_ASCENSION_BOOST = 2
-export const ITEM_ASCENSION_COST_PENALTY = 0.05
+export const ITEM_ASCENSION_BOOST = 4
+export const ITEM_ASCENSION_COST_PENALTY = 2.5
 
 /**
  * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item AND every item's
