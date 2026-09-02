@@ -2,19 +2,26 @@ import type { AxisDef, GeneratorDef } from './types'
 
 // AD's real dimension chain, reskinned: each item produces the item one tier below it (Clavier
 // produces PC pourri, Chaussettes produces Clavier, ...), cascading down to PC pourri, the only
-// item that produces puanteur directly. baseProduction here is that per-owned production rate
-// (units/sec of the tier below, or puanteur/sec for PC pourri) — these are the same relative
-// magnitudes the very first (pre-rework) version of this game used for direct production, since
-// the role — "how much does one owned unit contribute per second" — is structurally the same.
+// item that produces puanteur directly. baseProduction here is "units of the tier below produced
+// per owned unit per second" (or puanteur/sec for PC pourri) — kept deliberately small and only
+// mildly increasing per tier: in a chain, this number compounds through every tier below it (an
+// item's production feeds the next, which feeds the next...), so anything much bigger reaches
+// each tier's ascension cap within a single tick, making "redémarrer" fire dozens of times a
+// second instead of being a deliberate choice (see the ITEM_ASCENSION comment below — this was
+// exactly the runaway found during the first balance pass on the chain model, confirmed by
+// simulation: ~1500 ascensions in 5 minutes of "optimal" play. These values were originally the
+// game's very first (pre-chain) direct-production numbers, sized for a completely different
+// mechanic — they had to come down by ~1000x-40000x for the chain to feel like a chain instead of
+// an instant flood).
 export const GENERATORS: GeneratorDef[] = [
-  { id: 'pc', name: 'PC pourri', baseCost: 10, costGrowth: 1.14, scaling: 1.55, baseProduction: 4 },
-  { id: 'clavier', name: 'Clavier plein de miettes', baseCost: 60, costGrowth: 1.15, scaling: 1.6, baseProduction: 24 },
-  { id: 'chaussettes', name: 'Chaussettes du développeur', baseCost: 400, costGrowth: 1.16, scaling: 1.65, baseProduction: 140 },
-  { id: 'mug', name: 'Mug de café périmé', baseCost: 2800, costGrowth: 1.17, scaling: 1.7, baseProduction: 840 },
-  { id: 'routeur', name: 'Routeur wifi qui rame', baseCost: 20000, costGrowth: 1.18, scaling: 1.75, baseProduction: 5200 },
-  { id: 'poubelle', name: 'Poubelle de la salle info', baseCost: 150000, costGrowth: 1.19, scaling: 1.8, baseProduction: 32000 },
-  { id: 'serveur', name: 'Serveur qui chauffe dans un placard', baseCost: 1200000, costGrowth: 1.2, scaling: 1.85, baseProduction: 200000 },
-  { id: 'cave', name: 'Cave / datacenter officieux', baseCost: 10000000, costGrowth: 1.21, scaling: 1.9, baseProduction: 1300000 },
+  { id: 'pc', name: 'PC pourri', baseCost: 10, costGrowth: 1.14, scaling: 1.55, baseProduction: 1 },
+  { id: 'clavier', name: 'Clavier plein de miettes', baseCost: 60, costGrowth: 1.15, scaling: 1.6, baseProduction: 0.6 },
+  { id: 'chaussettes', name: 'Chaussettes du développeur', baseCost: 400, costGrowth: 1.16, scaling: 1.65, baseProduction: 0.36 },
+  { id: 'mug', name: 'Mug de café périmé', baseCost: 2800, costGrowth: 1.17, scaling: 1.7, baseProduction: 0.22 },
+  { id: 'routeur', name: 'Routeur wifi qui rame', baseCost: 20000, costGrowth: 1.18, scaling: 1.75, baseProduction: 0.13 },
+  { id: 'poubelle', name: 'Poubelle de la salle info', baseCost: 150000, costGrowth: 1.19, scaling: 1.8, baseProduction: 0.08 },
+  { id: 'serveur', name: 'Serveur qui chauffe dans un placard', baseCost: 1200000, costGrowth: 1.2, scaling: 1.85, baseProduction: 0.05 },
+  { id: 'cave', name: 'Cave / datacenter officieux', baseCost: 10000000, costGrowth: 1.21, scaling: 1.9, baseProduction: 0.03 },
 ]
 
 export const AXES: AxisDef[] = [
@@ -53,8 +60,10 @@ export const AXES: AxisDef[] = [
 // Infinity) still mirrors AD's own Dimensions -> Dimension Boost -> Antimatter Galaxy -> Infinity.
 
 /** Every `DIMENSION_TIER_SIZE` owned, an item's own production rate doubles (AD: dims double per 10). */
-export const DIMENSION_TIER_SIZE = 10
-export const DIMENSION_TIER_MULT = 2
+export const DIMENSION_TIER_SIZE = 25
+export const DIMENSION_TIER_MULT = 1.3
+/** Hard ceiling on tier steps — without it, an exponentially-growing ascension cap (see below) would make this multiplier doubly exponential. */
+export const DIMENSION_TIER_MAX_STEPS = 15
 
 /**
  * Per-item ascension (replaces the old global Redémarrage/Dimension Boost — retour utilisateur :
@@ -63,14 +72,22 @@ export const DIMENSION_TIER_MULT = 2
  * 0 — ascending "resets a circle to level 5 [...] and raises its level cap by 10". Applied here:
  * redémarrer resets an item's *owned* count down to ITEM_ASCENSION_RESET_LEVEL (not 0) in
  * exchange for a permanent production boost (ITEM_ASCENSION_BOOST^level), and the cap itself
- * grows every ascension (ITEM_ASCENSION_CAP_GROWTH per level) so each successive ascension is a
- * genuinely bigger undertaking — RI's own pacing lever, instead of leaning entirely on a cost
- * penalty (kept modest here for the same reason).
+ * grows *exponentially* with the level (ITEM_ASCENSION_CAP_GROWTH_RATE^level) so each successive
+ * ascension is a genuinely bigger undertaking than the last.
+ *
+ * Rebalanced after the switch to the AD dimension-chain model: with a chain, every item's own
+ * production feeds the next tier's owned count directly, so the old additive cap growth (+50 per
+ * level) was a linear wall against boost/dimension multipliers that compound *exponentially* —
+ * once an item ascended a few times, its own production refilled it to cap within a single tick,
+ * making "redémarrer" fire dozens of times per second instead of being a deliberate choice
+ * (confirmed by simulation: ~1500 ascensions in 5 minutes of optimal play). Making the cap grow
+ * exponentially too, and toning down both the ascension boost and the dimension-tier bonus (which
+ * compounds across all 8 chained items at once), breaks that runaway feedback loop.
  */
 export const ITEM_ASCENSION_CAP = 100
-export const ITEM_ASCENSION_CAP_GROWTH = 50
+export const ITEM_ASCENSION_CAP_GROWTH_RATE = 2.5
 export const ITEM_ASCENSION_RESET_LEVEL = 5
-export const ITEM_ASCENSION_BOOST = 4
+export const ITEM_ASCENSION_BOOST = 2
 export const ITEM_ASCENSION_COST_PENALTY = 0.1
 
 /**
@@ -110,11 +127,12 @@ export const CADENCE_EFFECT_PER_LEVEL = 0.25
 // large so the transition spans hours, not minutes): early redoublements each need several times
 // more puanteur than the last (slow, deliberate pacing); later ones need proportionally less, so
 // compounding axis bonuses visibly outrun the threshold and the game snowballs — "slow then
-// speeds up". Retuned after switching items to the AD dimension-chain production model (see
-// engine.ts's productionPerSecond) — verified by simulation against the real engine: 300
-// (leftover from an earlier model) was reachable in 14s buying everything affordable, the same
-// "first redoublement means nothing" problem hit twice before. 5e7 takes ~2.3min instead.
-export const REDOUBLEMENT_BASE_THRESHOLD = 5e7
+// speeds up". Retuned after the balance pass that shrank GENERATORS' baseProduction values by
+// several orders of magnitude (see the comment above GENERATORS) — verified by simulation against
+// the real engine: the previous 5e7 (tuned for the old, much faster economy) was no longer
+// reachable within an hour of buy-everything play. 1.3e4 takes ~2.3min instead, same target as
+// before the balance pass.
+export const REDOUBLEMENT_BASE_THRESHOLD = 1.3e4
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MAX = 6
 export const REDOUBLEMENT_THRESHOLD_GROWTH_MIN = 1.5
 export const REDOUBLEMENT_THRESHOLD_DECAY = 60
@@ -156,7 +174,7 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  * every balance pass, most recently the switch from RI's circles/product model back to AD's real
  * dimension-chain production (each item produces the one below it, cascading down to puanteur).
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 5e37
+export const COUCHE_2_UNLOCK_THRESHOLD = 2e31
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600

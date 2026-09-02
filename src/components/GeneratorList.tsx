@@ -53,7 +53,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                   {dimMult > 1 && <span className="asc-badge">x{formatMultiplier(dimMult)} palier</span>}
                 </div>
                 <div className="generator-meta">
-                  Nv.{owned} · produit {formatNumber(produced)} {target}/s
+                  Nv.{formatNumber(Math.floor(owned))} · produit {formatNumber(produced)} {target}/s
                   {ascMult > 1 && <span className="tier-boost"> · x{formatMultiplier(ascMult)} ascension</span>}
                 </div>
               </div>
@@ -70,7 +70,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                 <span className="cost">
                   {canAscend
                     ? `→ x${formatMultiplier(nextAscMult)}`
-                    : `${formatNumber(owned)}/${ascCap}`}
+                    : `${formatNumber(Math.floor(owned))}/${formatNumber(Math.floor(ascCap))}`}
                 </span>
               </button>
               <button disabled={maxQty === 0} onClick={() => engine.buyGenerator(def.id, 'max')}>

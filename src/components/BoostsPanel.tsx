@@ -35,7 +35,7 @@ export function BoostsPanel({ engine }: { engine: ReturnType<typeof useGameEngin
         <div className="boost-stat">
           <span>Coût</span>
           <strong>
-            {formatNumber(engine.grandMenageCostNow)} {LAST_GENERATOR_NAME} ({formatNumber(caveOwned)} possédés)
+            {formatNumber(engine.grandMenageCostNow)} {LAST_GENERATOR_NAME} ({formatNumber(Math.floor(caveOwned))} possédés)
           </strong>
         </div>
         <div className="boost-stat">

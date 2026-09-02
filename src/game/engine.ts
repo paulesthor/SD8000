@@ -6,6 +6,7 @@ import {
   CADENCE_EFFECT_PER_LEVEL,
   COST_MULT_FLOOR,
   COUCHE_2_UNLOCK_THRESHOLD,
+  DIMENSION_TIER_MAX_STEPS,
   DIMENSION_TIER_MULT,
   DIMENSION_TIER_SIZE,
   GENERATORS,
@@ -14,7 +15,7 @@ import {
   GRAND_MENAGE_COST_STEP,
   ITEM_ASCENSION_BOOST,
   ITEM_ASCENSION_CAP,
-  ITEM_ASCENSION_CAP_GROWTH,
+  ITEM_ASCENSION_CAP_GROWTH_RATE,
   ITEM_ASCENSION_COST_PENALTY,
   ITEM_ASCENSION_RESET_LEVEL,
   REDOUBLEMENT_BASE_THRESHOLD,
@@ -49,9 +50,16 @@ export function createInitialState(): GameState {
   }
 }
 
-/** AD-style stepped production multiplier: doubles every full decade owned (10, 20, 30...). */
+/**
+ * AD-style stepped production multiplier: grows every full DIMENSION_TIER_SIZE owned, capped at
+ * DIMENSION_TIER_MAX_STEPS steps. Since the ascension cap itself now grows exponentially with
+ * level (see ITEM_ASCENSION_CAP_GROWTH_RATE), owned can climb arbitrarily high after a few
+ * ascensions — without this cap, the step count (owned / SIZE) would grow exponentially too,
+ * making this multiplier doubly exponential and blowing up production uncontrollably.
+ */
 export function dimensionTierMultiplier(owned: number): number {
-  return Math.pow(DIMENSION_TIER_MULT, Math.floor(owned / DIMENSION_TIER_SIZE))
+  const steps = Math.min(DIMENSION_TIER_MAX_STEPS, Math.floor(owned / DIMENSION_TIER_SIZE))
+  return Math.pow(DIMENSION_TIER_MULT, steps)
 }
 
 /** Permanent per-item production multiplier from that item's own ascension level. */
@@ -59,9 +67,9 @@ export function itemAscensionMultiplier(level: number): number {
   return Math.pow(ITEM_ASCENSION_BOOST, level)
 }
 
-/** Owned units needed to ascend this item again, given its current ascension level — grows every level. */
+/** Owned units needed to ascend this item again, given its current ascension level — grows exponentially. */
 export function itemAscensionCap(level: number): number {
-  return ITEM_ASCENSION_CAP + level * ITEM_ASCENSION_CAP_GROWTH
+  return ITEM_ASCENSION_CAP * Math.pow(ITEM_ASCENSION_CAP_GROWTH_RATE, level)
 }
 
 /** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
@@ -93,7 +101,10 @@ export function maxAffordable(
 ): { qty: number; cost: number } {
   let qty = 0
   let cost = 0
-  const room = Math.max(0, itemAscensionCap(ascLevel) - owned)
+  // Floored: owned can be fractional now (chain production adds continuous amounts every tick),
+  // and buying always adds whole units — without the floor, an owned count sitting just under an
+  // integer cap (e.g. 99.6/100) would let one more whole unit through and overshoot the cap.
+  const room = Math.max(0, Math.floor(itemAscensionCap(ascLevel) - owned))
   // Small owned counts in a prototype: linear probe is fine and keeps the math obviously correct.
   while (qty < room) {
     const next =
