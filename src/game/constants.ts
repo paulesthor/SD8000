@@ -124,9 +124,15 @@ export const ITEM_ASCENSION_COST_PENALTY = 0.1
  * ascension level to 0 (their multipliers are untouched, same reasoning as per-item ascension
  * above), but makes Cadence purchases cheaper for the rest of this cycle (AD: galaxies cheapen
  * tickspeed). The bigger, rarer reset in the stack.
+ *
+ * BASE_COST lowered 80 -> 35 after a QA pass simulating many strategies against the real engine
+ * found the mechanic was dead: Cave (the priciest item) never exceeded ~69 owned in 2h of
+ * near-optimal play before redoublement reset it again, so the 80 threshold was simply
+ * unreachable — grandsMenages stayed at 0 in every scenario tested except one that never
+ * redoubled at all. Re-verified with the same simulation: reachable within a normal cycle now.
  */
-export const GRAND_MENAGE_BASE_COST = 80
-export const GRAND_MENAGE_COST_STEP = 60
+export const GRAND_MENAGE_BASE_COST = 35
+export const GRAND_MENAGE_COST_STEP = 25
 /** Each grand ménage divides future Cadence cost by (1 + grandsMenages * this). */
 export const GRAND_MENAGE_CADENCE_DISCOUNT = 0.35
 
