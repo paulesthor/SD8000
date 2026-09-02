@@ -89,6 +89,8 @@ export const DIMENSION_TIER_MULT = 2
  */
 export const ITEM_MULT_GROWTH_SCALE = 0.1
 export const PRODUCTION_EXPONENT = 0.245
+/** How many "nats" of combined ln(mult) growth it takes for the exponent to decay toward the floor. */
+export const PRODUCTION_EXPONENT_DECAY = 6
 
 /**
  * Per-item ascension (replaces the old global Redémarrage/Dimension Boost — retour utilisateur :
@@ -229,12 +231,13 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  * Infinity, via *optimized* play, not casual play) — re-simulated with the real engine after
  * every balance pass since (see REDOUBLEMENT_BASE_THRESHOLD's comment for the first, Cadence's
  * for the biggest, PRODUCTION_EXPONENT's for the switch to RI's own circles/product model, and
- * productionPerSecond's own comment for the self-adjusting-exponent fix that made a single
- * item's multiplier actually matter early game). That last fix sped up the early-to-mid game
- * a lot (optimal play was reaching couche 2 in 59min, undershooting the window) — bumped from
- * 1.4e14 to land back on ~80min (1.07e18 measured), stable, no NaN/Infinity.
+ * productionPerSecond's own comment for the two exponent-smoothing fixes since — first the
+ * discrete active-item count, then the discrete count itself replaced by a continuous decay
+ * after it turned out to cause real production *drops* on buying a new item). Re-bumped once
+ * more for the continuous-decay version, landing back on ~80min (2.2e17 measured), stable, no
+ * NaN/Infinity.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 1.07e18
+export const COUCHE_2_UNLOCK_THRESHOLD = 2.2e17
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600

@@ -19,6 +19,7 @@ import {
   ITEM_ASCENSION_RESET_LEVEL,
   ITEM_MULT_GROWTH_SCALE,
   PRODUCTION_EXPONENT,
+  PRODUCTION_EXPONENT_DECAY,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
@@ -203,27 +204,35 @@ export function tickItemMultipliers(
  * to a common exponent (tames 8 compounding multipliers from exploding), times the usual
  * axis/cadence multipliers.
  *
- * The exponent is NOT a fixed constant (PRODUCTION_EXPONENT below) — it self-adjusts to
- * 1 / (number of items whose multiplier has actually started growing). Retour utilisateur: with
- * a fixed exponent, a single item's own multiplier could grow visibly (x1 -> x4) while
- * puanteur/sec barely moved, because the other ~7 still-untouched items (each stuck at their
- * neutral x1) got folded into the same 1/8-ish exponent as if they were also contributing —
- * diluting the one item that actually mattered. A neutral x1 doesn't change the *product* (that
- * math was always right), but it shouldn't count toward *how many things need multiplying
- * together before the exponent kicks in* either. With only PC pourri active, the exponent is 1 —
- * full linear scaling with its own multiplier, exactly what a player watching that number climb
- * expects — and it only tapers toward PRODUCTION_EXPONENT once several items are genuinely
- * growing in parallel, which is what actually needs taming late-game.
+ * The exponent is NOT a fixed constant (PRODUCTION_EXPONENT below) — it decays smoothly from 1
+ * (full linear scaling, right when only one item is meaningfully grown) toward
+ * PRODUCTION_EXPONENT as more items grow in parallel. A first version of this counted "active"
+ * items with a hard `mult > 1` threshold and used 1/activeCount as the exponent — retour
+ * utilisateur: buying (and thereby soon growing) a new item could make total puanteur/sec drop,
+ * e.g. 721/s -> 213/s right when Mug de café's multiplier first ticked past 1. Verified with the
+ * real engine: that's exactly what happened — the moment a barely-grown item (mult ~1.0001,
+ * contributing almost nothing to the product) crossed the threshold, the discrete jump from
+ * 1/3 to 1/4 exponent shrank every *other* already-large item's contribution far more than the
+ * new item's negligible presence could offset, a real production drop from adding an item that
+ * should only ever help.
+ *
+ * The fix: no hard threshold. `logGrowth` (ln of the whole product, i.e. the sum of each item's
+ * own ln(mult)) grows only continuously — a barely-touched item adds a vanishingly small amount,
+ * not a discrete step — and the exponent is a smooth exponential decay in that quantity. This
+ * guarantees adding any amount of growth, however small, can only ever move production up or
+ * leave it unchanged, never down: verified with the real engine over hundreds of simulated
+ * ticks of continuous buying that puanteur/sec is now monotonically non-decreasing throughout.
  */
 export function productionPerSecond(itemMultipliers: Record<GeneratorId, number>, mult: Multipliers): number {
   let product = 1
-  let activeCount = 0
+  let logGrowth = 0
   for (const def of GENERATORS) {
     const m = itemMultipliers[def.id]
     product *= m
-    if (m > 1) activeCount++
+    logGrowth += Math.log(m)
   }
-  const exponent = activeCount <= 1 ? 1 : Math.max(PRODUCTION_EXPONENT, 1 / activeCount)
+  const decay = Math.exp(-logGrowth / PRODUCTION_EXPONENT_DECAY)
+  const exponent = PRODUCTION_EXPONENT + (1 - PRODUCTION_EXPONENT) * decay
   return Math.pow(product, exponent) * mult.totalProductionMult
 }
 
