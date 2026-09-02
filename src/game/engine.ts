@@ -14,7 +14,9 @@ import {
   GRAND_MENAGE_COST_STEP,
   ITEM_ASCENSION_BOOST,
   ITEM_ASCENSION_CAP,
+  ITEM_ASCENSION_CAP_GROWTH,
   ITEM_ASCENSION_COST_PENALTY,
+  ITEM_ASCENSION_RESET_FRACTION,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
@@ -58,6 +60,11 @@ export function itemAscensionMultiplier(level: number): number {
   return Math.pow(ITEM_ASCENSION_BOOST, level)
 }
 
+/** Owned units needed to ascend this item again, given its current ascension level — grows every level. */
+export function itemAscensionCap(level: number): number {
+  return ITEM_ASCENSION_CAP + level * ITEM_ASCENSION_CAP_GROWTH
+}
+
 /** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
 export function generatorCost(
   genId: GeneratorId,
@@ -87,7 +94,7 @@ export function maxAffordable(
 ): { qty: number; cost: number } {
   let qty = 0
   let cost = 0
-  const room = Math.max(0, ITEM_ASCENSION_CAP - owned)
+  const room = Math.max(0, itemAscensionCap(ascLevel) - owned)
   // Small owned counts in a prototype: linear probe is fine and keeps the math obviously correct.
   while (qty < room) {
     const next =
@@ -190,18 +197,24 @@ export function cadenceCost(cadenceLevel: number, grandsMenages: number): number
   return (CADENCE_BASE_COST * Math.pow(CADENCE_COST_GROWTH, cadenceLevel)) / discount
 }
 
-/** Whether this item has reached the ascension cap and can be redémarré. */
-export function canAscendItem(owned: number): boolean {
-  return owned >= ITEM_ASCENSION_CAP
+/** Whether this item has reached its (level-dependent) ascension cap and can be redémarré. */
+export function canAscendItem(owned: number, level: number): boolean {
+  return owned >= itemAscensionCap(level)
 }
 
-/** Redémarrer one item: resets its owned count to 0, grants it one more permanent ascension level. */
+/**
+ * Redémarrer one item: resets its owned count down to a fraction of the cap it just filled (not
+ * 0 — see the constants.ts comment on ITEM_ASCENSION_RESET_FRACTION for why) and grants one more
+ * permanent ascension level.
+ */
 export function performAscendItem(state: GameState, genId: GeneratorId): GameState {
-  if (!canAscendItem(state.owned[genId])) return state
+  const level = state.ascensionLevels[genId]
+  const cap = itemAscensionCap(level)
+  if (!canAscendItem(state.owned[genId], level)) return state
   return {
     ...state,
-    owned: { ...state.owned, [genId]: 0 },
-    ascensionLevels: { ...state.ascensionLevels, [genId]: state.ascensionLevels[genId] + 1 },
+    owned: { ...state.owned, [genId]: Math.round(cap * ITEM_ASCENSION_RESET_FRACTION) },
+    ascensionLevels: { ...state.ascensionLevels, [genId]: level + 1 },
   }
 }
 

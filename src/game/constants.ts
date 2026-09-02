@@ -70,25 +70,28 @@ export const DIMENSION_TIER_MULT = 2
 
 /**
  * Per-item ascension (replaces the old global Redémarrage/Dimension Boost — retour utilisateur :
- * un bouton par ligne d'item plutôt qu'un mécanisme global, chaque item plafonné à un niveau
- * fixe). Once an item reaches ITEM_ASCENSION_CAP owned, a "Redémarrer" button on its row resets
- * that item's owned count to 0 and grants a permanent per-item production multiplier
- * (ITEM_ASCENSION_BOOST^level) — independent of every other item, no cascade between them.
- *
- * Both constants were retuned after user feedback on the first pass (BOOST=2, PENALTY=0.05):
- * the boost was barely noticeable next to the item's own owned-count/tier growth, and the cost
- * penalty was so weak the game let you instantly rebuy ~58/100 of an item the moment it
- * ascended — verified with the real engine (a script that ascends the instant an item hits the
- * cap, then checks maxAffordable right after). BOOST=4 makes the ascension a real, visible power
- * jump; PENALTY=2.5 (a much steeper per-level cost-growth increase) cut that instant rebuy to
- * 10/100 for the same scenario — resetting an item is a real setback again, not a free lever,
- * while the boost still makes climbing back up faster than the first time. Re-verified the RI
- * 70-100min benchmark still holds with these values (74-90min depending on strategy), stable
- * over 24h simulated.
+ * un bouton par ligne d'item plutôt qu'un mécanisme global). Modeled on Revolution Idle's own
+ * circle-ascension mechanic after checking their wiki, rather than guessing: RI does NOT reset a
+ * circle to 0 — ascending "resets a circle to level 5 [...] and raises its level cap by 10". Two
+ * things follow from that, both different from our first pass:
+ * - The reset lands on a floor, not 0 — but a *fixed* floor turned out not to be enough here.
+ *   Our own production curve is exponential in owned (dimensionTierMultiplier doubles every 10
+ *   owned), so a small fixed floor like 10 still meant a ~1280x production crater on ascending
+ *   (verified with the real engine) — technically not 0, but still exactly the "2B -> 29M"
+ *   complaint. ITEM_ASCENSION_RESET_FRACTION resets to a *fraction of the cap you just filled*
+ *   instead (half, by default), which keeps the item's dimension-tier multiplier substantial
+ *   right after ascending rather than resetting it almost to nothing.
+ * - The cap itself grows every ascension (ITEM_ASCENSION_CAP_GROWTH added per level), instead of
+ *   staying fixed at 100 forever. This is what makes each successive ascension a genuinely bigger
+ *   undertaking (RI's own pacing lever) rather than leaning entirely on COST_PENALTY to slow
+ *   things down — so the cost penalty above could come back down some without repeating the
+ *   "instant rebuy 58/100" problem from the first pass.
  */
 export const ITEM_ASCENSION_CAP = 100
+export const ITEM_ASCENSION_CAP_GROWTH = 50
+export const ITEM_ASCENSION_RESET_FRACTION = 0.5
 export const ITEM_ASCENSION_BOOST = 4
-export const ITEM_ASCENSION_COST_PENALTY = 2.5
+export const ITEM_ASCENSION_COST_PENALTY = 1.2
 
 /**
  * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item AND every item's

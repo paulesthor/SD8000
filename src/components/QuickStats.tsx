@@ -6,7 +6,9 @@ import type { useGameEngine } from '../game/useGameEngine'
 /** Slim glance strip on the Générateurs tab — the state you'd otherwise have to switch tabs to check. */
 export function QuickStats({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const redoublementProgress = Math.min(100, (engine.state.earnedSinceReset / engine.currentThreshold) * 100)
-  const readyToAscend = GENERATORS.filter((def) => canAscendItem(engine.state.owned[def.id])).length
+  const readyToAscend = GENERATORS.filter((def) =>
+    canAscendItem(engine.state.owned[def.id], engine.state.ascensionLevels[def.id]),
+  ).length
 
   return (
     <div className="quick-stats">

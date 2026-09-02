@@ -1,9 +1,10 @@
-import { GENERATORS, ITEM_ASCENSION_CAP } from '../game/constants'
+import { GENERATORS } from '../game/constants'
 import {
   canAscendItem,
   dimensionTierMultiplier,
   generatorCost,
   generatorProductionPerSecond,
+  itemAscensionCap,
   itemAscensionMultiplier,
   maxAffordable,
   tierBoostMultiplier,
@@ -29,7 +30,8 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
         const tierBoost = above ? tierBoostMultiplier(engine.state.owned[above.id]) : null
         const dimMult = dimensionTierMultiplier(owned)
         const ascMult = itemAscensionMultiplier(ascLevel)
-        const canAscend = canAscendItem(owned)
+        const ascCap = itemAscensionCap(ascLevel)
+        const canAscend = canAscendItem(owned, ascLevel)
         const nextAscMult = itemAscensionMultiplier(ascLevel + 1)
 
         return (
@@ -62,7 +64,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                 <span className="cost">
                   {canAscend
                     ? `→ x${formatMultiplier(nextAscMult)}`
-                    : `${formatNumber(owned)}/${ITEM_ASCENSION_CAP}`}
+                    : `${formatNumber(owned)}/${ascCap}`}
                 </span>
               </button>
               <button disabled={maxQty === 0} onClick={() => engine.buyGenerator(def.id, 'max')}>

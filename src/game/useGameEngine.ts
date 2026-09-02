@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, ITEM_ASCENSION_CAP, TICK_MS } from './constants'
+import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, TICK_MS } from './constants'
 import {
   applyAxisGain,
   applyElapsedProduction,
@@ -10,6 +10,7 @@ import {
   generatorCost,
   grandMenageCost,
   isCouche2Unlocked,
+  itemAscensionCap,
   maxAffordable,
   maxAffordableCadenceLevels,
   performAscendItem,
@@ -129,7 +130,7 @@ export function useGameEngine() {
         if (qty === 0) return prev
         return { ...prev, puanteur: prev.puanteur - cost, owned: { ...prev.owned, [id]: owned + qty } }
       }
-      if (owned >= ITEM_ASCENSION_CAP) return prev
+      if (owned >= itemAscensionCap(ascLevel)) return prev
       const cost = generatorCost(id, owned, mode, costMult, ascLevel)
       if (cost > prev.puanteur) return prev
       return { ...prev, puanteur: prev.puanteur - cost, owned: { ...prev.owned, [id]: owned + mode } }
