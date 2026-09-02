@@ -361,6 +361,30 @@ button {
   gap: 10px;
 }
 
+.buy-max-all-button {
+  width: 100%;
+  margin-bottom: 10px;
+  background: var(--bg-card-alt);
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 10px;
+  padding: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  min-height: 44px;
+}
+
+.buy-max-all-button:not(:disabled):active {
+  background: var(--accent-dim);
+  color: #08130d;
+}
+
+.buy-max-all-button:disabled {
+  opacity: 0.4;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
 .generator-card,
 .axis-card {
   background: var(--bg-card);

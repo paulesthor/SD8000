@@ -15,8 +15,19 @@ import { Monogram } from './icons'
 export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEngine> }) {
   const costMult = engine.multipliers.costMult
 
+  const canBuyOrAscendAny = GENERATORS.some((def) => {
+    const owned = engine.state.owned[def.id]
+    const ascLevel = engine.state.ascensionLevels[def.id]
+    if (canAscendItem(owned, ascLevel)) return true
+    return maxAffordable(def.id, owned, engine.state.puanteur, costMult, ascLevel).qty > 0
+  })
+
   return (
-    <ul className="generator-list">
+    <>
+      <button className="buy-max-all-button" disabled={!canBuyOrAscendAny} onClick={engine.buyAndAscendAll}>
+        Tout acheter au max + redémarrer
+      </button>
+      <ul className="generator-list">
       {GENERATORS.map((def, index) => {
         const owned = engine.state.owned[def.id]
         const ascLevel = engine.state.ascensionLevels[def.id]
@@ -70,6 +81,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
           </li>
         )
       })}
-    </ul>
+      </ul>
+    </>
   )
 }

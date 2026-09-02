@@ -14,6 +14,7 @@ import {
   maxAffordable,
   maxAffordableCadenceLevels,
   performAscendItem,
+  performBuyAndAscendMax,
   performBuyCadence,
   performBuyCadenceMax,
   performGrandMenage,
@@ -143,6 +144,14 @@ export function useGameEngine() {
     setState((prev) => performAscendItem(prev, id))
   }, [])
 
+  /** "Tout acheter au max" : achète le max de chaque item et redémarre ceux prêts, en un clic. */
+  const buyAndAscendAll = useCallback(() => {
+    setState((prev) => {
+      const mult = computeMultipliers(prev.axisMultipliers, prev.cadenceLevel)
+      return performBuyAndAscendMax(prev, mult)
+    })
+  }, [])
+
   const buyGrandMenage = useCallback(() => {
     setState((prev) => performGrandMenage(prev))
   }, [])
@@ -232,6 +241,7 @@ export function useGameEngine() {
     couche2Threshold: COUCHE_2_UNLOCK_THRESHOLD,
     buyGenerator,
     ascendItem,
+    buyAndAscendAll,
     buyGrandMenage,
     buyCadence,
     buyCadenceMax,

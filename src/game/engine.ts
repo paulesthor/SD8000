@@ -237,6 +237,33 @@ export function performAscendItem(state: GameState, genId: GeneratorId): GameSta
 }
 
 /**
+ * "Tout acheter au max" : achète le maximum abordable de chaque item (dans l'ordre de la chaîne,
+ * PC pourri d'abord — acheter un item plus tôt dans la chaîne ne coûte jamais de la puanteur dont
+ * un item plus tard aurait besoin, donc l'ordre ne change rien au total achetable), puis redémarre
+ * tout item qui a atteint son cap d'ascension. Un seul passage : redémarrer un item ne libère pas
+ * de puanteur pour en racheter un autre, donc pas besoin de boucler.
+ */
+export function performBuyAndAscendMax(state: GameState, mult: Multipliers): GameState {
+  let puanteur = state.puanteur
+  const owned = { ...state.owned }
+  for (const def of GENERATORS) {
+    const { qty, cost } = maxAffordable(def.id, owned[def.id], puanteur, mult.costMult, state.ascensionLevels[def.id])
+    if (qty > 0) {
+      owned[def.id] += qty
+      puanteur -= cost
+    }
+  }
+  const ascensionLevels = { ...state.ascensionLevels }
+  for (const def of GENERATORS) {
+    if (canAscendItem(owned[def.id], ascensionLevels[def.id])) {
+      ascensionLevels[def.id] += 1
+      owned[def.id] = ITEM_ASCENSION_RESET_LEVEL
+    }
+  }
+  return { ...state, puanteur, owned, ascensionLevels }
+}
+
+/**
  * Grand ménage: pays Cave units, resets every item's owned count, ascension level, AND current
  * puanteur to 0 (AD's galaxies reset antimatter itself too, not just dimensions), cheapens Cadence.
  */
