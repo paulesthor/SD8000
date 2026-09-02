@@ -278,7 +278,10 @@ export function performGrandMenage(state: GameState): GameState {
   if (state.owned[LAST_GENERATOR_ID] < cost) return state
   const owned = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
   const ascensionLevels = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
-  return { ...state, owned, ascensionLevels, grandsMenages: state.grandsMenages + 1 }
+  // puanteur resets too (AD's galaxies reset antimatter itself) — otherwise whatever was still
+  // held survives the reset and instantly rebuys most of what was just wiped, making the
+  // "reset" free in practice.
+  return { ...state, owned, ascensionLevels, puanteur: 0, grandsMenages: state.grandsMenages + 1 }
 }
 
 /** Cadence: pays puanteur directly, permanent flat production multiplier for the rest of the cycle. */

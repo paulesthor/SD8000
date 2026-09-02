@@ -122,10 +122,15 @@ export const ITEM_ASCENSION_BOOST = 4
 export const ITEM_ASCENSION_COST_PENALTY = 0.1
 
 /**
- * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item's level AND
- * ascension level to 0 (their multipliers are untouched, same reasoning as per-item ascension
- * above), but makes Cadence purchases cheaper for the rest of this cycle (AD: galaxies cheapen
- * tickspeed). The bigger, rarer reset in the stack.
+ * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item's level,
+ * ascension level, AND current puanteur to 0 (multipliers are untouched, same reasoning as
+ * per-item ascension above), but makes Cadence purchases cheaper for the rest of this cycle (AD:
+ * galaxies cheapen tickspeed). The bigger, rarer reset in the stack.
+ *
+ * The puanteur reset was missing in an earlier version — retour utilisateur: without it, doing a
+ * grand ménage cost nothing real, since whatever puanteur you were still holding survived the
+ * reset and could instantly rebuy back most of what was just wiped. AD's own galaxies reset
+ * antimatter itself alongside dimensions and dimension boosts — same idea here.
  *
  * BASE_COST lowered 80 -> 35 after a QA pass simulating many strategies against the real engine
  * found the mechanic was dead: Cave (the priciest item) never exceeded ~69 owned in 2h of
