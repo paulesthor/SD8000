@@ -3,11 +3,10 @@ import {
   canAscendItem,
   dimensionTierMultiplier,
   generatorCost,
+  generatorProductionPerSecond,
   itemAscensionCap,
   itemAscensionMultiplier,
-  itemGrowthRate,
   maxAffordable,
-  tierBoostMultiplier,
 } from '../game/engine'
 import { formatMultiplier, formatNumber } from '../game/format'
 import type { useGameEngine } from '../game/useGameEngine'
@@ -21,14 +20,12 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
       {GENERATORS.map((def, index) => {
         const owned = engine.state.owned[def.id]
         const ascLevel = engine.state.ascensionLevels[def.id]
-        const itemMult = engine.state.itemMultipliers[def.id]
 
         const cost1 = generatorCost(def.id, owned, 1, costMult, ascLevel)
         const { qty: maxQty, cost: maxCost } = maxAffordable(def.id, owned, engine.state.puanteur, costMult, ascLevel)
-        const growth = itemGrowthRate(index, engine.state.owned, engine.state.ascensionLevels)
+        const produced = generatorProductionPerSecond(index, engine.state.owned, engine.state.ascensionLevels, engine.multipliers)
+        const target = index === 0 ? 'puanteur' : GENERATORS[index - 1].name
 
-        const above = GENERATORS[index + 1]
-        const tierBoost = above ? tierBoostMultiplier(engine.state.owned[above.id]) : null
         const dimMult = dimensionTierMultiplier(owned)
         const ascMult = itemAscensionMultiplier(ascLevel)
         const ascCap = itemAscensionCap(ascLevel)
@@ -42,13 +39,10 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
               <div>
                 <div className="generator-name">
                   {def.name}
-                  {dimMult > 1 && <span className="asc-badge">x{formatMultiplier(dimMult)} vitesse</span>}
+                  {dimMult > 1 && <span className="asc-badge">x{formatMultiplier(dimMult)} palier</span>}
                 </div>
                 <div className="generator-meta">
-                  Nv.{owned} · multiplicateur x{formatMultiplier(itemMult)} (+{formatNumber(growth)}/s)
-                  {tierBoost && tierBoost > 1 && (
-                    <span className="tier-boost"> · boosté x{formatMultiplier(tierBoost)} par {above!.name}</span>
-                  )}
+                  Nv.{owned} · produit {formatNumber(produced)} {target}/s
                   {ascMult > 1 && <span className="tier-boost"> · x{formatMultiplier(ascMult)} ascension</span>}
                 </div>
               </div>
@@ -64,7 +58,7 @@ export function GeneratorList({ engine }: { engine: ReturnType<typeof useGameEng
                 Redémarrer
                 <span className="cost">
                   {canAscend
-                    ? `→ x${formatMultiplier(nextAscMult)} vitesse`
+                    ? `→ x${formatMultiplier(nextAscMult)}`
                     : `${formatNumber(owned)}/${ascCap}`}
                 </span>
               </button>

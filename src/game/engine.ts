@@ -17,15 +17,11 @@ import {
   ITEM_ASCENSION_CAP_GROWTH,
   ITEM_ASCENSION_COST_PENALTY,
   ITEM_ASCENSION_RESET_LEVEL,
-  ITEM_MULT_GROWTH_SCALE,
-  PRODUCTION_EXPONENT,
-  PRODUCTION_EXPONENT_DECAY,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
   REDOUBLEMENT_THRESHOLD_GROWTH_MAX,
   REDOUBLEMENT_THRESHOLD_GROWTH_MIN,
-  TIER_BOOST_COEFF,
 } from './constants'
 import type { AxisId, GameState, GeneratorId } from './types'
 
@@ -42,7 +38,6 @@ export function createInitialState(): GameState {
     earnedSinceReset: 0,
     bestCycleEarned: 0,
     owned,
-    itemMultipliers: Object.fromEntries(GENERATORS.map((g) => [g.id, 1])) as Record<GeneratorId, number>,
     ascensionLevels: Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>,
     grandsMenages: 0,
     cadenceLevel: 0,
@@ -54,22 +49,22 @@ export function createInitialState(): GameState {
   }
 }
 
-/** AD-style stepped growth-speed multiplier: doubles every full decade of level owned (10, 20, 30...). */
+/** AD-style stepped production multiplier: doubles every full decade owned (10, 20, 30...). */
 export function dimensionTierMultiplier(owned: number): number {
   return Math.pow(DIMENSION_TIER_MULT, Math.floor(owned / DIMENSION_TIER_SIZE))
 }
 
-/** Growth-speed multiplier from an item's own ascension level (boosts how fast its multiplier climbs). */
+/** Permanent per-item production multiplier from that item's own ascension level. */
 export function itemAscensionMultiplier(level: number): number {
   return Math.pow(ITEM_ASCENSION_BOOST, level)
 }
 
-/** Level needed to ascend this item again, given its current ascension level — grows every level. */
+/** Owned units needed to ascend this item again, given its current ascension level — grows every level. */
 export function itemAscensionCap(level: number): number {
   return ITEM_ASCENSION_CAP + level * ITEM_ASCENSION_CAP_GROWTH
 }
 
-/** Cost of buying the (owned+1)-th..(owned+qty)-th level of a generator, as a lump sum. */
+/** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
 export function generatorCost(
   genId: GeneratorId,
   owned: number,
@@ -88,7 +83,7 @@ export function generatorCost(
   return total * costMult
 }
 
-/** Max number of levels affordable with the given budget, and their total cost. */
+/** Max number of units affordable with the given budget, and their total cost. */
 export function maxAffordable(
   genId: GeneratorId,
   owned: number,
@@ -158,82 +153,57 @@ export function computeMultipliers(
   }
 }
 
-/** Multiplier a generator gets from how many of the next tier up are owned. */
-export function tierBoostMultiplier(ownedOfTierAbove: number): number {
-  return 1 + TIER_BOOST_COEFF * ownedOfTierAbove
-}
-
 /**
- * How fast a single item's own multiplier grows right now, per second — RI's "lap speed": driven
- * by its level (stepped doubling, same shape as before), its ascension level, how many of the
- * next tier up are owned, and that item's relative growth weight.
+ * Puanteur/sec (index 0) or units/sec of the tier below (index > 0) produced by a single item
+ * right now — AD's real dimension chain: Clavier produces PC pourri, Chaussettes produces
+ * Clavier, and so on down to PC pourri, which alone produces puanteur.
  */
-export function itemGrowthRate(
+export function generatorProductionPerSecond(
   index: number,
   owned: Record<GeneratorId, number>,
   ascensionLevels: Record<GeneratorId, number>,
+  mult: Multipliers,
 ): number {
   const def = GENERATORS[index]
-  const above = GENERATORS[index + 1]
   const dimMult = dimensionTierMultiplier(owned[def.id])
   const ascMult = itemAscensionMultiplier(ascensionLevels[def.id])
-  const tierBoost = above ? tierBoostMultiplier(owned[above.id]) : 1
-  // owned=0 must mean zero growth (an item you haven't bought at all shouldn't passively climb
-  // just because its growthRate weight is large) — same role `owned` played as a direct linear
-  // factor in the old additive-production formula this replaced.
-  return def.growthRate * ITEM_MULT_GROWTH_SCALE * owned[def.id] * dimMult * ascMult * tierBoost
+  return def.baseProduction * owned[def.id] * dimMult * ascMult * mult.totalProductionMult
 }
 
-/** Advances every item's own multiplier by `seconds` of "lap" time at its current growth rate. */
-export function tickItemMultipliers(
-  itemMultipliers: Record<GeneratorId, number>,
+/** Puanteur/sec right now — PC pourri's own production, the bottom of the dimension chain. */
+export function productionPerSecond(
   owned: Record<GeneratorId, number>,
   ascensionLevels: Record<GeneratorId, number>,
-  seconds: number,
-): Record<GeneratorId, number> {
-  const next = { ...itemMultipliers }
-  for (let i = 0; i < GENERATORS.length; i++) {
-    const def = GENERATORS[i]
-    next[def.id] += itemGrowthRate(i, owned, ascensionLevels) * seconds
-  }
-  return next
+  mult: Multipliers,
+): number {
+  return generatorProductionPerSecond(0, owned, ascensionLevels, mult)
 }
 
 /**
- * Puanteur/sec right now — RI's own formula: the *product* of every circle's multiplier, raised
- * to a common exponent (tames 8 compounding multipliers from exploding), times the usual
- * axis/cadence multipliers.
- *
- * The exponent is NOT a fixed constant (PRODUCTION_EXPONENT below) — it decays smoothly from 1
- * (full linear scaling, right when only one item is meaningfully grown) toward
- * PRODUCTION_EXPONENT as more items grow in parallel. A first version of this counted "active"
- * items with a hard `mult > 1` threshold and used 1/activeCount as the exponent — retour
- * utilisateur: buying (and thereby soon growing) a new item could make total puanteur/sec drop,
- * e.g. 721/s -> 213/s right when Mug de café's multiplier first ticked past 1. Verified with the
- * real engine: that's exactly what happened — the moment a barely-grown item (mult ~1.0001,
- * contributing almost nothing to the product) crossed the threshold, the discrete jump from
- * 1/3 to 1/4 exponent shrank every *other* already-large item's contribution far more than the
- * new item's negligible presence could offset, a real production drop from adding an item that
- * should only ever help.
- *
- * The fix: no hard threshold. `logGrowth` (ln of the whole product, i.e. the sum of each item's
- * own ln(mult)) grows only continuously — a barely-touched item adds a vanishingly small amount,
- * not a discrete step — and the exponent is a smooth exponential decay in that quantity. This
- * guarantees adding any amount of growth, however small, can only ever move production up or
- * leave it unchanged, never down: verified with the real engine over hundreds of simulated
- * ticks of continuous buying that puanteur/sec is now monotonically non-decreasing throughout.
+ * Advances the whole chain by `seconds`: every item above PC pourri feeds owned[tier below] at
+ * its current production rate, and PC pourri's own production is returned as puanteur gained.
+ * Each item's contribution is clamped so owned never exceeds its ascension cap, whatever the
+ * source (bought or produced) — same rule buying already respects.
  */
-export function productionPerSecond(itemMultipliers: Record<GeneratorId, number>, mult: Multipliers): number {
-  let product = 1
-  let logGrowth = 0
-  for (const def of GENERATORS) {
-    const m = itemMultipliers[def.id]
-    product *= m
-    logGrowth += Math.log(m)
+export function tickChain(
+  owned: Record<GeneratorId, number>,
+  ascensionLevels: Record<GeneratorId, number>,
+  mult: Multipliers,
+  seconds: number,
+): { owned: Record<GeneratorId, number>; puanteurGained: number } {
+  const next = { ...owned }
+  let puanteurGained = 0
+  for (let i = GENERATORS.length - 1; i >= 0; i--) {
+    const produced = generatorProductionPerSecond(i, owned, ascensionLevels, mult) * seconds
+    if (i === 0) {
+      puanteurGained = produced
+    } else {
+      const targetId = GENERATORS[i - 1].id
+      const cap = itemAscensionCap(ascensionLevels[targetId])
+      next[targetId] = Math.min(cap, next[targetId] + produced)
+    }
   }
-  const decay = Math.exp(-logGrowth / PRODUCTION_EXPONENT_DECAY)
-  const exponent = PRODUCTION_EXPONENT + (1 - PRODUCTION_EXPONENT) * decay
-  return Math.pow(product, exponent) * mult.totalProductionMult
+  return { owned: next, puanteurGained }
 }
 
 /** Puanteur (in units of the last item) needed for the next Grand ménage. */
@@ -253,11 +223,8 @@ export function canAscendItem(owned: number, level: number): boolean {
 }
 
 /**
- * Redémarrer one item: resets its *level* down to a small floor (RI resets its own circles to
- * level 5 on ascending, not 0) and grants one more permanent ascension level — its accumulated
- * multiplier is untouched, so unlike the previous (additive-production) version of this
- * mechanic, ascending never drops current production; it only resets how fast that item's
- * multiplier grows from here until it's re-leveled.
+ * Redémarrer one item: resets its owned count down to a small floor (RI resets its own circles
+ * to level 5 on ascending, not 0) and grants one more permanent ascension level.
  */
 export function performAscendItem(state: GameState, genId: GeneratorId): GameState {
   const level = state.ascensionLevels[genId]
@@ -270,17 +237,18 @@ export function performAscendItem(state: GameState, genId: GeneratorId): GameSta
 }
 
 /**
- * Grand ménage: pays Cave units, resets every item's level and ascension level (their
- * multipliers are untouched, same reasoning as per-item ascension above), cheapens Cadence.
+ * Grand ménage: pays Cave units, resets every item's owned count, ascension level, AND current
+ * puanteur to 0 (AD's galaxies reset antimatter itself too, not just dimensions), cheapens Cadence.
  */
 export function performGrandMenage(state: GameState): GameState {
   const cost = grandMenageCost(state.grandsMenages)
   if (state.owned[LAST_GENERATOR_ID] < cost) return state
   const owned = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
+  // Same free starter as createInitialState: PC pourri is the only item producing puanteur
+  // directly, so zeroing it alongside puanteur itself would strand the player at a permanent
+  // 0-production, 0-puanteur dead end with no way to ever buy anything again.
+  owned.pc = 1
   const ascensionLevels = Object.fromEntries(GENERATORS.map((g) => [g.id, 0])) as Record<GeneratorId, number>
-  // puanteur resets too (AD's galaxies reset antimatter itself) — otherwise whatever was still
-  // held survives the reset and instantly rebuys most of what was just wiped, making the
-  // "reset" free in practice.
   return { ...state, owned, ascensionLevels, puanteur: 0, grandsMenages: state.grandsMenages + 1 }
 }
 
@@ -352,20 +320,7 @@ export function axisRedoublementThreshold(redoublements: number, axisFloor: numb
 /**
  * Multiplier gained by redoubling into a given axis right now, given puanteur earned this cycle
  * and that axis's effective threshold (see axisRedoublementThreshold) — RI's P.Mult idea: no
- * currency, the redoublement itself is the reward, applied directly to one axis. Same family as
- * Antimatter Dimensions' own Infinity Points formula (IP = 10^(log10(antimatter)/308 - 0.75),
- * i.e. antimatter^(1/308) scaled down — a fractional power / log-shaped curve with no hard
- * ceiling): here, gain = LOG_SCALE * ln(earnedSinceReset / threshold). Two things keep this from
- * spiraling or being spammable:
- * - The threshold rising with `redoublements`, and with that axis's own floor: earning the same
- *   *relative* amount always takes proportionally more effort than last time, however strong
- *   you've become, and re-growing an axis you've already invested in specifically can't be
- *   cheaper than it was the last time you grew it.
- * - ln(1) = 0: gain is exactly 0 right at the threshold and only grows with accumulation
- *   *beyond* it, so redoubling the instant it unlocks is worthless. But unlike a hard cap, it
- *   never fully stalls either — every further multiple of accumulation keeps adding a bit more
- *   (doubling the surplus always adds ln(2) ≈ 0.69 × LOG_SCALE, however much you've already
- *   accumulated), so waiting longer always keeps paying off, just less and less per extra wait.
+ * currency, the redoublement itself is the reward, applied directly to one axis.
  */
 export function redoublementMultiplierGain(earnedSinceReset: number, threshold: number): number {
   if (earnedSinceReset <= threshold) return 0
@@ -385,21 +340,14 @@ export function isCouche2Unlocked(bestCycleEarned: number): boolean {
 /**
  * Applies `seconds` worth of production to a state as a lump sum — used both for offline
  * catch-up on load and for catching up time lost while the tab was backgrounded/throttled.
- * Item multipliers grow linearly over the interval (level/ascension don't change while away), so
- * the average of the rate at the start and the end of the interval is an exact* trapezoid
- * approximation of the true (slightly convex) accumulated puanteur — good enough for an offline
- * catch-up that's capped at a few hours anyway.
  */
 export function applyElapsedProduction(state: GameState, seconds: number): { state: GameState; gained: number } {
   const mult = computeMultipliers(state.axisMultipliers, state.cadenceLevel, 0.5)
-  const rateStart = productionPerSecond(state.itemMultipliers, mult)
-  const itemMultipliers = tickItemMultipliers(state.itemMultipliers, state.owned, state.ascensionLevels, seconds)
-  const rateEnd = productionPerSecond(itemMultipliers, mult)
-  const gained = ((rateStart + rateEnd) / 2) * seconds
+  const { owned, puanteurGained: gained } = tickChain(state.owned, state.ascensionLevels, mult, seconds)
   return {
     state: {
       ...state,
-      itemMultipliers,
+      owned,
       puanteur: state.puanteur + gained,
       earnedSinceReset: state.earnedSinceReset + gained,
       bestCycleEarned: Math.max(state.bestCycleEarned, state.earnedSinceReset + gained),
