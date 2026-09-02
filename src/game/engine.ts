@@ -201,14 +201,30 @@ export function tickItemMultipliers(
 /**
  * Puanteur/sec right now — RI's own formula: the *product* of every circle's multiplier, raised
  * to a common exponent (tames 8 compounding multipliers from exploding), times the usual
- * axis/cadence multipliers. Replaces the old per-item additive production sum entirely.
+ * axis/cadence multipliers.
+ *
+ * The exponent is NOT a fixed constant (PRODUCTION_EXPONENT below) — it self-adjusts to
+ * 1 / (number of items whose multiplier has actually started growing). Retour utilisateur: with
+ * a fixed exponent, a single item's own multiplier could grow visibly (x1 -> x4) while
+ * puanteur/sec barely moved, because the other ~7 still-untouched items (each stuck at their
+ * neutral x1) got folded into the same 1/8-ish exponent as if they were also contributing —
+ * diluting the one item that actually mattered. A neutral x1 doesn't change the *product* (that
+ * math was always right), but it shouldn't count toward *how many things need multiplying
+ * together before the exponent kicks in* either. With only PC pourri active, the exponent is 1 —
+ * full linear scaling with its own multiplier, exactly what a player watching that number climb
+ * expects — and it only tapers toward PRODUCTION_EXPONENT once several items are genuinely
+ * growing in parallel, which is what actually needs taming late-game.
  */
 export function productionPerSecond(itemMultipliers: Record<GeneratorId, number>, mult: Multipliers): number {
   let product = 1
+  let activeCount = 0
   for (const def of GENERATORS) {
-    product *= itemMultipliers[def.id]
+    const m = itemMultipliers[def.id]
+    product *= m
+    if (m > 1) activeCount++
   }
-  return Math.pow(product, PRODUCTION_EXPONENT) * mult.totalProductionMult
+  const exponent = activeCount <= 1 ? 1 : Math.max(PRODUCTION_EXPONENT, 1 / activeCount)
+  return Math.pow(product, exponent) * mult.totalProductionMult
 }
 
 /** Puanteur (in units of the last item) needed for the next Grand ménage. */

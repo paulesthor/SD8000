@@ -228,11 +228,13 @@ export const AXIS_MULT_SAFETY_CAP = 1e50
  * Calibrated against RI's own published benchmark (70-100 minutes for a new player's first
  * Infinity, via *optimized* play, not casual play) — re-simulated with the real engine after
  * every balance pass since (see REDOUBLEMENT_BASE_THRESHOLD's comment for the first, Cadence's
- * for the biggest, PRODUCTION_EXPONENT's for the switch to RI's own circles/product model). The
- * value here didn't need to move for the circles rewrite — PRODUCTION_EXPONENT was tuned instead
- * to land back on the same 74-82min window this threshold already represented.
+ * for the biggest, PRODUCTION_EXPONENT's for the switch to RI's own circles/product model, and
+ * productionPerSecond's own comment for the self-adjusting-exponent fix that made a single
+ * item's multiplier actually matter early game). That last fix sped up the early-to-mid game
+ * a lot (optimal play was reaching couche 2 in 59min, undershooting the window) — bumped from
+ * 1.4e14 to land back on ~80min (1.07e18 measured), stable, no NaN/Infinity.
  */
-export const COUCHE_2_UNLOCK_THRESHOLD = 1.4e14
+export const COUCHE_2_UNLOCK_THRESHOLD = 1.07e18
 
 /** Offline progress is capped so a first prototype can't be abused by leaving it running for weeks. */
 export const MAX_OFFLINE_SECONDS = 12 * 3600
