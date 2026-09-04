@@ -145,9 +145,17 @@ export function computeMultipliers(
   const wobble = variance > 0 ? 1 + (instabilitySeed * 2 - 1) * variance : 1
   const wobblyInstabilityMult = instabilityMult * wobble
 
+  // Both terms below are themselves exponential in redoublement count (axis multipliers compound
+  // multiplicatively every redoublement, see applyAxisGain) — multiplying an exponential
+  // (axisMultipliers.synergie) by another exponential (otherGrowth, even under a sqrt) is still
+  // exponential, just with a much bigger rate, which let an axis-rotation strategy reach ~1e116
+  // in 2h versus ~1e4 for a single-axis strategy in simulation (found via the QA suite). Using
+  // log1p instead of sqrt keeps synergie's bonus from growing exponentially with the OTHER axes'
+  // raw magnitude — it now depends on their redoublement-count-ish scale instead, so diversifying
+  // axes still helps but can no longer multiply two runaway terms together.
   const otherGrowth =
     axisMultipliers.vitesse - 1 + (axisMultipliers.production - 1) + (axisMultipliers.cout - 1) + (instabilityMult - 1)
-  const synergyMult = 1 + (axisMultipliers.synergie - 1) * Math.sqrt(Math.max(0, otherGrowth)) * 0.1
+  const synergyMult = 1 + (axisMultipliers.synergie - 1) * Math.log1p(Math.max(0, otherGrowth)) * 0.1
 
   const cadenceMult = 1 + cadenceLevel * CADENCE_EFFECT_PER_LEVEL
 
