@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, TICK_MS } from './constants'
+import { AUTOSAVE_INTERVAL_MS, AXES, COUCHE_2_UNLOCK_THRESHOLD, PUANTEUR_SAFETY_CAP, TICK_MS } from './constants'
 import {
   applyAxisGain,
   applyElapsedProduction,
@@ -87,13 +87,15 @@ export function useGameEngine() {
         const dtSeconds = TICK_MS / 1000
         const mult = computeMultipliers(prev.axisMultipliers, prev.cadenceLevel, Math.random())
         const { owned, puanteurGained: gained } = tickChain(prev.owned, prev.ascensionLevels, mult, dtSeconds)
-        const earnedSinceReset = prev.earnedSinceReset + gained
+        // Defense in depth (see PUANTEUR_SAFETY_CAP): production is already clamped per-second,
+        // but clamp the running totals too rather than trust that forever.
+        const earnedSinceReset = Math.min(PUANTEUR_SAFETY_CAP, prev.earnedSinceReset + gained)
         return {
           ...prev,
           owned,
-          puanteur: prev.puanteur + gained,
+          puanteur: Math.min(PUANTEUR_SAFETY_CAP, prev.puanteur + gained),
           earnedSinceReset,
-          bestCycleEarned: Math.max(prev.bestCycleEarned, earnedSinceReset),
+          bestCycleEarned: Math.min(PUANTEUR_SAFETY_CAP, Math.max(prev.bestCycleEarned, earnedSinceReset)),
           lastTickAt: Date.now(),
         }
       })

@@ -16,8 +16,11 @@ import {
   ITEM_ASCENSION_BOOST,
   ITEM_ASCENSION_CAP,
   ITEM_ASCENSION_CAP_GROWTH_RATE,
+  ITEM_ASCENSION_CAP_SAFETY_CAP,
   ITEM_ASCENSION_COST_PENALTY,
+  ITEM_ASCENSION_MULT_SAFETY_CAP,
   ITEM_ASCENSION_RESET_LEVEL,
+  PUANTEUR_SAFETY_CAP,
   REDOUBLEMENT_BASE_THRESHOLD,
   REDOUBLEMENT_LOG_SCALE,
   REDOUBLEMENT_THRESHOLD_DECAY,
@@ -62,14 +65,26 @@ export function dimensionTierMultiplier(owned: number): number {
   return Math.pow(DIMENSION_TIER_MULT, steps)
 }
 
-/** Permanent per-item production multiplier from that item's own ascension level. */
+/**
+ * Permanent per-item production multiplier from that item's own ascension level. Clamped: nothing
+ * stops a player from ascending the same item hundreds of times over several real hours without
+ * ever redoubling (confirmed by simulation: ascensionLevels.pc reached 515 after ~7h of continuous
+ * play), and unlike the axis multipliers this one isn't reset by anything short of a Grand ménage
+ * — without a ceiling, ITEM_ASCENSION_BOOST^level eventually overflows a float64 to Infinity,
+ * which then poisons puanteur/production/redoublement gain forever once saved.
+ */
 export function itemAscensionMultiplier(level: number): number {
-  return Math.pow(ITEM_ASCENSION_BOOST, level)
+  return Math.min(ITEM_ASCENSION_MULT_SAFETY_CAP, Math.pow(ITEM_ASCENSION_BOOST, level))
 }
 
-/** Owned units needed to ascend this item again, given its current ascension level — grows exponentially. */
+/**
+ * Owned units needed to ascend this item again, given its current ascension level — grows
+ * exponentially, clamped for the same overflow reason as itemAscensionMultiplier above (owned
+ * itself climbs to match this cap, so an unclamped cap is just as dangerous as an unclamped
+ * multiplier).
+ */
 export function itemAscensionCap(level: number): number {
-  return ITEM_ASCENSION_CAP * Math.pow(ITEM_ASCENSION_CAP_GROWTH_RATE, level)
+  return Math.min(ITEM_ASCENSION_CAP_SAFETY_CAP, ITEM_ASCENSION_CAP * Math.pow(ITEM_ASCENSION_CAP_GROWTH_RATE, level))
 }
 
 /** Cost of buying the (owned+1)-th..(owned+qty)-th unit of a generator, as a lump sum. */
@@ -186,7 +201,10 @@ export function generatorProductionPerSecond(
   const def = GENERATORS[index]
   const dimMult = dimensionTierMultiplier(owned[def.id])
   const ascMult = itemAscensionMultiplier(ascensionLevels[def.id])
-  return def.baseProduction * owned[def.id] * dimMult * ascMult * mult.totalProductionMult
+  // Clamped: each factor is individually capped (see ITEM_ASCENSION_*_SAFETY_CAP), but their
+  // product can still overflow — this is the last line of defense before that rate gets
+  // multiplied by up to MAX_OFFLINE_SECONDS and added into puanteur/owned.
+  return Math.min(PUANTEUR_SAFETY_CAP, def.baseProduction * owned[def.id] * dimMult * ascMult * mult.totalProductionMult)
 }
 
 /** Puanteur/sec right now — PC pourri's own production, the bottom of the dimension chain. */
@@ -390,13 +408,17 @@ export function isCouche2Unlocked(bestCycleEarned: number): boolean {
 export function applyElapsedProduction(state: GameState, seconds: number): { state: GameState; gained: number } {
   const mult = computeMultipliers(state.axisMultipliers, state.cadenceLevel, 0.5)
   const { owned, puanteurGained: gained } = tickChain(state.owned, state.ascensionLevels, mult, seconds)
+  // Defense in depth (see PUANTEUR_SAFETY_CAP): production itself is already clamped per-second,
+  // but this is the one place a single lump gain can span hours (offline catch-up), so clamp the
+  // running totals too rather than trust every upstream factor to stay in range forever.
+  const earnedSinceReset = Math.min(PUANTEUR_SAFETY_CAP, state.earnedSinceReset + gained)
   return {
     state: {
       ...state,
       owned,
-      puanteur: state.puanteur + gained,
-      earnedSinceReset: state.earnedSinceReset + gained,
-      bestCycleEarned: Math.max(state.bestCycleEarned, state.earnedSinceReset + gained),
+      puanteur: Math.min(PUANTEUR_SAFETY_CAP, state.puanteur + gained),
+      earnedSinceReset,
+      bestCycleEarned: Math.min(PUANTEUR_SAFETY_CAP, Math.max(state.bestCycleEarned, earnedSinceReset)),
       lastTickAt: Date.now(),
     },
     gained,

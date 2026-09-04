@@ -89,6 +89,21 @@ export const ITEM_ASCENSION_CAP_GROWTH_RATE = 2.5
 export const ITEM_ASCENSION_RESET_LEVEL = 5
 export const ITEM_ASCENSION_BOOST = 2
 export const ITEM_ASCENSION_COST_PENALTY = 0.1
+/**
+ * Hard ceilings on the ascension cap and its production multiplier — pure defense in depth, same
+ * idea as AXIS_MULT_SAFETY_CAP below. Found by simulation: a player who never redoubles and just
+ * keeps ascending the same item (a legitimate, unlimited strategy — nothing else ever resets
+ * per-item ascension short of a Grand ménage) reaches ascensionLevels ~500+ after about 7 hours of
+ * continuous play, at which point ITEM_ASCENSION_BOOST^level and the matching owned cap overflow
+ * a float64 to Infinity — which then poisons puanteur, production and every future redoublement
+ * gain forever once the save is written. These caps are far above anything reachable in any
+ * realistic play session, so they should never actually bind; they just guarantee the numbers
+ * stop growing instead of the save silently corrupting into Infinity/NaN.
+ */
+export const ITEM_ASCENSION_CAP_SAFETY_CAP = 1e250
+export const ITEM_ASCENSION_MULT_SAFETY_CAP = 1e100
+/** Same defense-in-depth idea, applied to puanteur/earnedSinceReset/bestCycleEarned/owned themselves. */
+export const PUANTEUR_SAFETY_CAP = 1e280
 
 /**
  * Grand ménage (AD's Antimatter Galaxy): costs units of Cave, resets every item's owned count,
